@@ -481,6 +481,38 @@ main.wrap{padding-bottom:96px!important}
   .private-table th,.private-table td{padding:8px 6px}
 }
 
+
+/* ===== Account lineup editor ===== */
+.private-lineup-shell{padding:0 10px 24px}
+.private-lineup-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;gap:7px;margin-bottom:10px}
+.private-lineup-toolbar label,.private-lineup-top label{display:grid;gap:5px;font-size:10px;color:#929292}
+.private-lineup-toolbar select,.private-lineup-top select{min-width:0;width:100%;font-size:11px;padding:9px;background:#090909;border-color:#2c2c2c}
+.private-lineup-toolbar button,.private-lineup-actions button{font-size:10px;padding:9px 10px}
+.private-lineup-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid #292929;background:#0b0b0b;margin:10px 0}
+.private-lineup-top strong{display:block;font-size:15px;margin-top:4px}
+.private-lineup-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#777}
+.private-lineup-top label{min-width:110px}
+.private-lineup-pitch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.private-lineup-group{padding:12px;border:1px solid #292929;background:#090909;min-width:0}
+.private-lineup-group h3{font-size:11px;margin:0 0 10px;color:#bdbdbd;text-transform:uppercase;letter-spacing:.06em}
+.private-lineup-fields{display:grid;gap:8px}
+.private-lineup-field{display:grid;gap:5px;min-width:0}
+.private-lineup-field span{font-size:9px;color:#7f7f7f}
+.private-lineup-field select{width:100%;min-width:0;font-size:10px;padding:9px;background:#070707;border-color:#272727}
+.private-lineup-fields .empty{font-size:10px;color:#888;padding:9px;border:1px dashed #333;line-height:1.5}
+.private-lineup-summary{margin-top:10px;padding:10px;border:1px solid #292929;background:#0c0c0c;font-size:10px;color:#999;line-height:1.55}
+.private-lineup-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.private-lineup-footnote{font-size:9px;line-height:1.5;color:#666;margin:10px 0 0}
+@media(max-width:620px){
+ .private-lineup-toolbar{grid-template-columns:1fr 1fr}
+ .private-lineup-toolbar label{grid-column:1/-1}
+ .private-lineup-toolbar #lineupLoadTeam{grid-column:1/-1}
+ .private-lineup-pitch{grid-template-columns:1fr}
+ .private-lineup-top{align-items:flex-start;flex-direction:column}
+ .private-lineup-actions{display:grid;grid-template-columns:1fr}
+ .private-lineup-actions button{width:100%}
+}
+
 </style>
 </head>
 <body>
@@ -653,57 +685,47 @@ main.wrap{padding-bottom:96px!important}
   </section>
 
   <section id="create-team" class="section">
-    <div class="hero" style="margin-top:1vh">
-      <h1 style="font-size:32px">Crear Plantilla</h1>
-      <p>Forma tu once en 4-4-2. Pulsa una posición y elige un jugador que pertenezca a esa posición.</p>
+    <div class="hero private-hero">
+      <h1 style="font-size:32px">Mi Alineación</h1>
+      <p>Elige una liga en la que estés inscrito, carga tu equipo y modifica el once titular real de Fantasy. Los cambios solo se envían después de revisar el resumen y confirmarlos.</p>
     </div>
-    <div class="create-team-panel">
-      <div class="create-team-toolbar">
-        <div>
-          <div class="create-team-format">Formación · 4-4-2</div>
-          <div id="createTeamStatus" class="create-team-status">Cargando jugadores…</div>
-        </div>
-        <div class="create-team-actions">
-          <button id="clearLineup" type="button" class="create-team-reset">Vaciar plantilla</button>
-        </div>
+    <div class="private-lineup-shell">
+      <div class="private-lineup-toolbar">
+        <label for="lineupLeagueSelect">Tu liga
+          <select id="lineupLeagueSelect"><option value="">Carga tus ligas…</option></select>
+        </label>
+        <button type="button" id="lineupLoadLeagues">Actualizar ligas</button>
+        <button type="button" class="primary" id="lineupLoadTeam">Cargar mi alineación</button>
       </div>
-      <div class="create-team-rating" aria-live="polite">
-        <div>
-          <div class="create-team-rating-label">Media de puntos de la plantilla</div>
-          <div id="createTeamRating" class="create-team-rating-value">—</div>
+      <div id="lineupEditorStatus" class="private-state" aria-live="polite">Inicia sesión con Google y elige una de tus ligas.</div>
+      <div id="lineupEditor" class="hidden">
+        <div class="private-lineup-top">
+          <div><span class="private-lineup-label">Equipo propio</span><strong id="lineupEditorTeamName">—</strong><div id="lineupEditorLeagueMeta" class="private-muted"></div></div>
+          <label for="lineupFormationSelect">Formación
+            <select id="lineupFormationSelect">
+              <option value="5-4-1">5-4-1</option>
+              <option value="5-3-2">5-3-2</option>
+              <option value="4-5-1">4-5-1</option>
+              <option value="4-4-2">4-4-2</option>
+              <option value="4-3-3">4-3-3</option>
+              <option value="3-5-2">3-5-2</option>
+              <option value="3-4-3">3-4-3</option>
+            </select>
+          </label>
         </div>
-        <div id="createTeamRatingMeta" class="create-team-rating-meta">Selecciona jugadores para calcularla</div>
+        <div class="private-lineup-pitch">
+          <section class="private-lineup-group keeper-group"><h3>Portero</h3><div id="lineupKeeperFields" class="private-lineup-fields"></div></section>
+          <section class="private-lineup-group"><h3>Defensas</h3><div id="lineupDefenderFields" class="private-lineup-fields"></div></section>
+          <section class="private-lineup-group"><h3>Centrocampistas</h3><div id="lineupMidfieldFields" class="private-lineup-fields"></div></section>
+          <section class="private-lineup-group"><h3>Delanteros</h3><div id="lineupStrikerFields" class="private-lineup-fields"></div></section>
+        </div>
+        <div id="lineupEditorSummary" class="private-lineup-summary" aria-live="polite"></div>
+        <div class="private-lineup-actions">
+          <button type="button" id="lineupReloadCurrent">Descartar cambios</button>
+          <button type="button" class="primary" id="lineupSaveCurrent">Revisar y guardar alineación</button>
+        </div>
+        <p class="private-lineup-footnote">Solo se muestran jugadores de tu plantilla en esa liga. El servidor valida que las 11 fichas sean distintas y que la formación coincida con los puestos elegidos.</p>
       </div>
-      <div id="lineupPitch" class="lineup-pitch" aria-label="Campo de fútbol con formación 4-4-2">
-        <div class="lineup-halfway"></div>
-        <div id="lineupGoalkeeper" class="lineup-row goalkeeper"></div>
-        <div id="lineupDefenders" class="lineup-row"></div>
-        <div id="lineupMidfielders" class="lineup-row"></div>
-        <div id="lineupForwards" class="lineup-row"></div>
-      </div>
-      <div class="create-team-note">Los jugadores disponibles se filtran por su posición indicada por la API. Un mismo jugador no puede ocupar dos posiciones del once.</div>
-
-      <section class="lineup-agent" aria-labelledby="lineupAgentTitle">
-        <div class="lineup-agent-head">
-          <div>
-            <div id="lineupAgentTitle" class="lineup-agent-title">Asistente de plantilla</div>
-            <div class="lineup-agent-sub">Analiza los jugadores cargados desde la API y te propone mejoras por posición.</div>
-          </div>
-          <span class="lineup-agent-badge">Basado en datos actuales</span>
-        </div>
-        <div class="lineup-agent-body">
-          <div class="lineup-agent-query">
-            <input id="lineupAgentQuery" type="search" autocomplete="off" placeholder="Ej. ¿Qué delantero debería cambiar?">
-            <button id="lineupAgentAsk" type="button">Analizar</button>
-          </div>
-          <div class="lineup-agent-actions">
-            <button type="button" data-agent-prompt="improve">¿Qué debería mejorar?</button>
-            <button type="button" data-agent-prompt="best">Dame alternativas mejores</button>
-            <button type="button" data-agent-prompt="empty">¿Qué puestos me faltan?</button>
-          </div>
-          <div id="lineupAgentResult" class="lineup-agent-result" aria-live="polite">Selecciona jugadores y te indicaré qué posiciones tienen más margen de mejora.</div>
-        </div>
-      </section>
     </div>
   </section>
 
