@@ -503,6 +503,19 @@ main.wrap{padding-bottom:96px!important}
 .private-lineup-row{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-around;gap:6px;width:100%;min-width:0}
 .private-lineup-row.keeper-row{justify-content:center}
 .private-lineup-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:0 1 94px;min-width:0;max-width:104px;min-height:77px;padding:7px 5px;background:linear-gradient(180deg,rgba(23,40,56,.96),rgba(12,22,32,.96));border:1px solid rgba(221,239,250,.7);border-bottom:3px solid #b8d4e0;border-radius:3px;color:#fff;box-shadow:0 4px 8px rgba(0,0,0,.26);text-align:center;transition:transform .12s,border-color .12s}
+.private-slot-avatar{width:clamp(35px,4.3vw,54px);height:clamp(35px,4.3vw,54px);object-fit:contain;display:block;flex:0 0 auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.38))}
+.private-slot-avatar-fallback{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 auto;border-radius:50%;background:linear-gradient(145deg,#71869b,#25374b);color:#eef6fc;font-size:15px;font-weight:900;box-shadow:0 2px 5px rgba(0,0,0,.2)}
+.private-lineup-slot.is-filled{min-height:104px}
+.private-slot-avatar-fallback[hidden]{display:none}
+.private-lineup-bench-avatar{width:50px;height:49px;object-fit:contain;display:block;align-self:center;margin:0 auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.18))}
+.private-lineup-bench-avatar-fallback{width:42px;height:42px;display:flex;align-items:center;justify-content:center;align-self:center;margin:4px auto;background:#c3ccd7;color:#566475;border-radius:50%;font-size:14px;font-weight:900}
+.private-lineup-bench-avatar-fallback[hidden]{display:none}
+.private-lineup-picker-avatar{width:42px;height:42px;object-fit:contain;flex:0 0 auto;background:#0b131d;border:1px solid #34475b}
+.private-lineup-picker-avatar-fallback{width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:#23364a;color:#e4f2fd;font-size:13px;font-weight:900}
+.private-lineup-picker-avatar-fallback[hidden]{display:none}
+.private-lineup-picker-choice{grid-template-columns:42px minmax(0,1fr) auto}
+.private-lineup-picker-person{min-width:0}
+
 .private-lineup-slot:hover{transform:translateY(-2px);border-color:#fff}
 .private-lineup-slot:focus-visible{outline:2px solid #f5e86a;outline-offset:2px}
 .private-lineup-slot.is-filled{background:linear-gradient(180deg,rgba(35,52,75,.98),rgba(13,24,42,.98));border-bottom-color:#6eacff}
@@ -1425,6 +1438,34 @@ function lineupEditorPosition(player){
   if(value==="4"||value.includes("striker")||value.includes("forward")||value.includes("delanter")||value==="fw")return "striker";
   return null;
 }
+function lineupEditorPlayerImage(player){
+  if(!player)return null;
+  const master=player?.playerMaster||player?.player?.playerMaster||player?.player||player;
+  const nested=player?.player&&obj(player.player)?player.player:null;
+  const direct=imageFor(player)||imageFor(master)||(nested?imageFor(nested):null);
+  if(direct&&imgUrl(direct))return direct;
+  const rawName=lineupEditorPlayerName(player);
+  const normalized=privateNormalizeName(rawName);
+  if(Array.isArray(players)){
+    const cached=players.find(item=>normalized&&privateNormalizeName(item.name)===normalized);
+    if(cached?.image&&imgUrl(cached.image))return cached.image;
+    const playerPublicId=privateDirectField(master,["id","playerId","player_id","footballPlayerId","playerMasterId"]);
+    if(playerPublicId!==null){
+      const byId=players.find(item=>String(item.id)===String(playerPublicId));
+      if(byId?.image&&imgUrl(byId.image))return byId.image;
+    }
+  }
+  return null;
+}
+function lineupEditorAvatarHtml(player,kind){
+  const image=lineupEditorPlayerImage(player);
+  const name=lineupEditorPlayerName(player);
+  const initial=(name&&name!=="Jugador sin nombre"?name.trim().charAt(0).toLocaleUpperCase("es-ES"):"•");
+  const fallback=kind==="bench"?"private-lineup-bench-avatar-fallback":kind==="picker"?"private-lineup-picker-avatar-fallback":"private-slot-avatar-fallback";
+  const cls=kind==="bench"?"private-lineup-bench-avatar":kind==="picker"?"private-lineup-picker-avatar":"private-slot-avatar";
+  return (image?'<img class="'+cls+'" src="'+esc(image)+'" alt="" loading="lazy" onerror="this.hidden=true;if(this.nextElementSibling)this.nextElementSibling.hidden=false">':"")+
+    '<span class="'+fallback+'" '+(image?'hidden':"")+' aria-hidden="true">'+esc(initial)+'</span>';
+}
 function lineupEditorPlayerName(player){
   const master=player?.playerMaster||player?.player||player;
   return privateText(privateDirectField(master,["nickname","name","displayName","fullName","shortName"])??privateDirectField(player,["nickname","name","displayName"]),"Jugador sin nombre");
@@ -1586,7 +1627,7 @@ function lineupEditorRenderSlotRow(group,count,values){
     const empty=!id;
     return '<button type="button" class="private-lineup-slot '+(empty?"is-empty":"is-filled")+'" data-lineup-slot-group="'+esc(group)+'" data-slot-index="'+index+'" aria-label="'+esc(lineupEditorGroupName(group)+" "+(index+1)+(player?": "+label:""))+'">'+
       '<span class="private-slot-position">'+esc(lineupEditorGroupShort(group))+' · '+(index+1)+'</span>'+
-      (empty?'<span class="private-slot-add">＋</span><span class="private-slot-hint">Añadir jugador</span>':'<span class="private-slot-name">'+esc(actualName)+'</span><span class="private-slot-hint">Cambiar</span>')+
+      (empty?'<span class="private-slot-add">＋</span><span class="private-slot-hint">Añadir jugador</span>':lineupEditorAvatarHtml(player,"slot")+'<span class="private-slot-name">'+esc(actualName)+'</span><span class="private-slot-hint">Cambiar</span>')+
     '</button>';
   }).join("");
   host.querySelectorAll("[data-lineup-slot-group]").forEach(button=>button.addEventListener("click",()=>{
@@ -1610,6 +1651,7 @@ function lineupEditorRenderBench(){
     const club=privateField(master,["teamName","clubName","team"]);
     return '<button type="button" class="private-lineup-bench-card" data-lineup-bench-player="'+esc(id)+'" '+(group?'':'disabled title="No se pudo identificar la posición de esta ficha"')+'>'+
       '<span class="private-lineup-bench-position">'+esc(group?lineupEditorGroupShort(group):"—")+'</span>'+
+      lineupEditorAvatarHtml(player,"bench")+
       '<span class="private-lineup-bench-name">'+esc(lineupEditorPlayerName(player))+'</span>'+
       '<span class="private-lineup-bench-club">'+esc(club===null?"Plantilla de tu liga":privateText(club))+'</span>'+
       '<span class="private-lineup-bench-action">'+(group?"Colocar en el once":"Posición n/d")+'</span>'+
@@ -1673,7 +1715,8 @@ function lineupEditorOpenPicker(group,index){
     const club=privateField(master,["teamName","clubName","team"]);
     const disabled=used.has(String(id))&&String(id)!==String(current);
     return '<button type="button" class="private-lineup-picker-choice" data-lineup-choice="'+esc(id)+'" '+(disabled?'disabled':'')+'>'+
-      '<span><span class="private-lineup-picker-name">'+esc(lineupEditorPlayerName(player))+'</span><span class="private-lineup-picker-meta">'+esc(club===null?lineupEditorGroupName(group):privateText(club))+'</span></span>'+
+      lineupEditorAvatarHtml(player,"picker")+
+      '<span class="private-lineup-picker-person"><span class="private-lineup-picker-name">'+esc(lineupEditorPlayerName(player))+'</span><span class="private-lineup-picker-meta">'+esc(club===null?lineupEditorGroupName(group):privateText(club))+'</span></span>'+
       '<span class="private-lineup-picker-action">'+(String(id)===String(current)?"Actual":"Elegir")+'</span></button>';
   }).join("");
   $("modalContent").innerHTML='<div class="private-lineup-picker"><div class="private-lineup-picker-intro">Elige una ficha que pertenezca a tu plantilla. No se muestran fotos ni medias; solo nombre y posición.</div>'+
@@ -1695,8 +1738,10 @@ function lineupEditorOpenAssignBench(id){
     const groupValues=group==="goalkeeper"?[lineupEditorSelections.goalkeeper]:(lineupEditorSelections[group]||[]);
     const existing=groupValues[index]||"";
     const currentPlayer=existing?lineupEditorResolveSelectedPlayer(existing):null;
+    const labelPlayer=currentPlayer||player;
     return '<button type="button" class="private-lineup-picker-choice" data-lineup-assign-group="'+esc(group)+'" data-lineup-assign-index="'+index+'">'+
-      '<span><span class="private-lineup-picker-name">'+esc(lineupEditorGroupName(group))+" "+(index+1)+'</span><span class="private-lineup-picker-meta">'+esc(currentPlayer?("Sustituye a "+lineupEditorPlayerName(currentPlayer)):"Puesto vacío")+'</span></span>'+
+      lineupEditorAvatarHtml(labelPlayer,"picker")+
+      '<span class="private-lineup-picker-person"><span class="private-lineup-picker-name">'+esc(lineupEditorGroupName(group))+" "+(index+1)+'</span><span class="private-lineup-picker-meta">'+esc(currentPlayer?("Sustituye a "+lineupEditorPlayerName(currentPlayer):"Puesto vacío")+'</span></span>'+
       '<span class="private-lineup-picker-action">Colocar</span></button>';
   }).join("");
   $("modalTitle").textContent="Colocar suplente";
