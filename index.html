@@ -482,35 +482,78 @@ main.wrap{padding-bottom:96px!important}
 }
 
 
-/* ===== Account lineup editor ===== */
+/* ===== Account lineup editor: football HUD ===== */
 .private-lineup-shell{padding:0 10px 24px}
 .private-lineup-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;gap:7px;margin-bottom:10px}
 .private-lineup-toolbar label,.private-lineup-top label{display:grid;gap:5px;font-size:10px;color:#929292}
 .private-lineup-toolbar select,.private-lineup-top select{min-width:0;width:100%;font-size:11px;padding:9px;background:#090909;border-color:#2c2c2c}
 .private-lineup-toolbar button,.private-lineup-actions button{font-size:10px;padding:9px 10px}
-.private-lineup-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid #292929;background:#0b0b0b;margin:10px 0}
+.private-lineup-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid #34414f;background:linear-gradient(110deg,#101b29,#172638);margin:10px 0}
 .private-lineup-top strong{display:block;font-size:15px;margin-top:4px}
-.private-lineup-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#777}
+.private-lineup-label{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#96a8bb}
 .private-lineup-top label{min-width:110px}
-.private-lineup-pitch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
-.private-lineup-group{padding:12px;border:1px solid #292929;background:#090909;min-width:0}
-.private-lineup-group h3{font-size:11px;margin:0 0 10px;color:#bdbdbd;text-transform:uppercase;letter-spacing:.06em}
-.private-lineup-fields{display:grid;gap:8px}
-.private-lineup-field{display:grid;gap:5px;min-width:0}
-.private-lineup-field span{font-size:9px;color:#7f7f7f}
-.private-lineup-field select{width:100%;min-width:0;font-size:10px;padding:9px;background:#070707;border-color:#272727}
-.private-lineup-fields .empty{font-size:10px;color:#888;padding:9px;border:1px dashed #333;line-height:1.5}
-.private-lineup-summary{margin-top:10px;padding:10px;border:1px solid #292929;background:#0c0c0c;font-size:10px;color:#999;line-height:1.55}
+.private-lineup-pitch{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;justify-content:space-around;gap:16px;min-height:610px;padding:36px 16px;background:#416d29;background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 12.5%,transparent 12.5% 25%),linear-gradient(180deg,#608b36 0%,#4e7c2d 43%,#477329 100%);border:3px solid #9eb775;border-radius:3px;box-shadow:inset 0 0 0 2px rgba(17,40,13,.25),0 10px 22px rgba(0,0,0,.28)}
+.private-lineup-pitch:before{content:"";position:absolute;z-index:-1;inset:20px 18px;border:1px solid rgba(241,250,231,.58);pointer-events:none}
+.private-lineup-pitch:after{content:"";position:absolute;z-index:-1;width:104px;height:104px;border:1px solid rgba(241,250,231,.5);border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
+.private-pitch-halfway{position:absolute;z-index:-1;height:1px;left:18px;right:18px;top:50%;background:rgba(241,250,231,.55)}
+.private-pitch-box{position:absolute;z-index:-1;left:25%;right:25%;height:70px;border:1px solid rgba(241,250,231,.52);pointer-events:none}
+.private-pitch-box.top{top:20px;border-top:0}
+.private-pitch-box.bottom{bottom:20px;border-bottom:0}
+.private-pitch-label{position:absolute;top:8px;right:10px;color:rgba(246,255,239,.73);font-size:8px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.private-lineup-row{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-around;gap:6px;width:100%;min-width:0}
+.private-lineup-row.keeper-row{justify-content:center}
+.private-lineup-slot{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:0 1 94px;min-width:0;max-width:104px;min-height:77px;padding:7px 5px;background:linear-gradient(180deg,rgba(23,40,56,.96),rgba(12,22,32,.96));border:1px solid rgba(221,239,250,.7);border-bottom:3px solid #b8d4e0;border-radius:3px;color:#fff;box-shadow:0 4px 8px rgba(0,0,0,.26);text-align:center;transition:transform .12s,border-color .12s}
+.private-lineup-slot:hover{transform:translateY(-2px);border-color:#fff}
+.private-lineup-slot:focus-visible{outline:2px solid #f5e86a;outline-offset:2px}
+.private-lineup-slot.is-filled{background:linear-gradient(180deg,rgba(35,52,75,.98),rgba(13,24,42,.98));border-bottom-color:#6eacff}
+.private-lineup-slot.is-empty{background:rgba(8,21,22,.64);border:1px dashed rgba(245,252,243,.75);box-shadow:none}
+.private-lineup-slot.is-empty .private-slot-add{font-size:20px;line-height:20px;color:#e9f6da}
+.private-slot-position{font-size:8px;line-height:1.1;font-weight:900;letter-spacing:.13em;color:#b9d6e3;text-transform:uppercase}
+.private-slot-name{font-size:10px;line-height:1.25;font-weight:850;overflow-wrap:anywhere;max-width:100%}
+.private-slot-hint{font-size:8px;color:#d5e4d1;opacity:.86}
+.private-lineup-bench{margin-top:12px;background:#cfd3da;color:#18202b;border:1px solid #afb9c6;box-shadow:0 5px 12px rgba(0,0,0,.12)}
+.private-lineup-bench-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #abb5c2;font-weight:950;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.private-lineup-bench-count{color:#55616f;font-size:9px;font-weight:700;letter-spacing:0}
+.private-lineup-bench-list{display:flex;gap:0;overflow-x:auto;overscroll-behavior-x:contain}
+.private-lineup-bench-card{flex:0 0 118px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:11px 10px;background:#e2e5ea;color:#202a35;border:0;border-right:1px solid #bdc6d0;text-align:left}
+.private-lineup-bench-card:hover{background:#f2f4f7}
+.private-lineup-bench-position{font-size:8px;font-weight:950;letter-spacing:.1em;color:#35618a}
+.private-lineup-bench-name{font-size:10px;line-height:1.25;font-weight:850;white-space:normal;overflow-wrap:anywhere}
+.private-lineup-bench-club{font-size:8px;color:#687382}
+.private-lineup-bench-action{align-self:flex-end;font-size:8px;color:#264f76;font-weight:900;text-transform:uppercase;margin-top:3px}
+.private-lineup-summary{margin-top:10px;padding:10px 12px;border:1px solid #2b3947;background:#101b29;font-size:10px;color:#aebdca;line-height:1.55}
 .private-lineup-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 .private-lineup-footnote{font-size:9px;line-height:1.5;color:#666;margin:10px 0 0}
+.private-lineup-picker{padding:12px;display:grid;gap:8px}
+.private-lineup-picker-intro{font-size:11px;color:#868f9a;line-height:1.5}
+.private-lineup-picker-list{display:grid;gap:5px;max-height:min(54vh,520px);overflow:auto}
+.private-lineup-picker-choice{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid #2b3745;background:#111e2d;color:#f4f7fa;text-align:left}
+.private-lineup-picker-choice:hover{background:#1a2a3d;border-color:#7289a4}
+.private-lineup-picker-choice:disabled{opacity:.32;cursor:not-allowed}
+.private-lineup-picker-name{font-size:12px;font-weight:850}
+.private-lineup-picker-meta{display:block;color:#8f9dad;font-size:9px;margin-top:3px}
+.private-lineup-picker-action{font-size:9px;font-weight:900;letter-spacing:.08em;color:#a8d7ff;text-transform:uppercase}
+.private-lineup-picker-remove{padding:9px;background:#231619;border-color:#60343a;color:#ffb6bd;font-size:10px}
 @media(max-width:620px){
  .private-lineup-toolbar{grid-template-columns:1fr 1fr}
  .private-lineup-toolbar label{grid-column:1/-1}
  .private-lineup-toolbar #lineupLoadTeam{grid-column:1/-1}
- .private-lineup-pitch{grid-template-columns:1fr}
- .private-lineup-top{align-items:flex-start;flex-direction:column}
+ .private-lineup-top{align-items:flex-start;flex-direction:row}
+ .private-lineup-pitch{min-height:570px;padding:31px 7px;gap:13px}
+ .private-lineup-pitch:before{inset:16px 8px}
+ .private-pitch-box{left:21%;right:21%}
+ .private-lineup-row{gap:3px}
+ .private-lineup-slot{flex:1 1 0;max-width:88px;min-height:68px;padding:6px 2px}
+ .private-slot-name{font-size:9px}
+ .private-slot-position{font-size:7px}
+ .private-lineup-bench-card{flex-basis:104px;padding:10px 8px}
  .private-lineup-actions{display:grid;grid-template-columns:1fr}
  .private-lineup-actions button{width:100%}
+}
+@media(max-width:380px){
+ .private-lineup-pitch{padding-left:2px;padding-right:2px;min-height:540px}
+ .private-lineup-slot{min-height:62px}
+ .private-slot-name{font-size:8px}
 }
 
 </style>
@@ -718,11 +761,17 @@ main.wrap{padding-bottom:96px!important}
             </select>
           </label>
         </div>
-        <div class="private-lineup-pitch">
-          <section class="private-lineup-group keeper-group"><h3>Portero</h3><div id="lineupKeeperFields" class="private-lineup-fields"></div></section>
-          <section class="private-lineup-group"><h3>Defensas</h3><div id="lineupDefenderFields" class="private-lineup-fields"></div></section>
-          <section class="private-lineup-group"><h3>Centrocampistas</h3><div id="lineupMidfieldFields" class="private-lineup-fields"></div></section>
-          <section class="private-lineup-group"><h3>Delanteros</h3><div id="lineupStrikerFields" class="private-lineup-fields"></div></section>
+        <div class="private-lineup-pitch" aria-label="Campo de fútbol interactivo para editar el once">
+          <div class="private-pitch-halfway"></div><div class="private-pitch-box top"></div><div class="private-pitch-box bottom"></div>
+          <div class="private-pitch-label">Once titular</div>
+          <div id="lineupStrikerFields" class="private-lineup-row forward-row" aria-label="Delanteros"></div>
+          <div id="lineupMidfieldFields" class="private-lineup-row" aria-label="Centrocampistas"></div>
+          <div id="lineupDefenderFields" class="private-lineup-row" aria-label="Defensas"></div>
+          <div id="lineupKeeperFields" class="private-lineup-row keeper-row" aria-label="Portero"></div>
+        </div>
+        <div class="private-lineup-bench">
+          <div class="private-lineup-bench-head"><span>Suplentes / resto de plantilla</span><span id="lineupBenchCount" class="private-lineup-bench-count"></span></div>
+          <div id="lineupBenchFields" class="private-lineup-bench-list"></div>
         </div>
         <div id="lineupEditorSummary" class="private-lineup-summary" aria-live="polite"></div>
         <div class="private-lineup-actions">
