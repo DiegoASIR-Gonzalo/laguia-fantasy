@@ -2450,7 +2450,33 @@ async function switchPrivateLeagueTab(tab){
         selectedPrivateStanding=privateRows(data,"standing");
       }
       renderPrivateLeagueTeams(selectedPrivateStanding);
-      privateSetPanelState(selectedPrivateStanding.length?"Selecciona un equipo para ver su plantilla.":"No se encontraron equipos en la clasificación.",selectedPrivateStanding.length?"good":"");
+      if(!selectedPrivateStanding.length){
+        privateSetPanelState("No se encontraron equipos en la clasificación.","error");
+        return;
+      }
+
+      // Entering this tab always refreshes the user's own roster first.
+      privateSetPanelState("Identificando tu equipo y actualizando tu plantilla…");
+      let ownTeamId=selectedPrivateOwnTeamId||privateOwnTeamId(selectedPrivateLeague);
+      if(!ownTeamId){
+        try{
+          ownTeamId=await lineupEditorResolveOwnTeam(selectedPrivateLeague);
+        }catch(error){
+          privateSetPanelState((error?.message||"No se pudo identificar tu equipo.")+" Puedes seleccionar manualmente un manager de la lista.","error");
+          return;
+        }
+      }
+      if(!ownTeamId){
+        privateSetPanelState("No se pudo identificar tu equipo automáticamente. Selecciona un manager de la lista para ver su plantilla.","error");
+        return;
+      }
+      selectedPrivateOwnTeamId=String(ownTeamId);
+      const ownRow=selectedPrivateStanding.find(row=>String(privateId(row,"team"))===String(ownTeamId));
+      const ownName=ownRow
+        ? privateText(privateField(ownRow,["managerName","teamName","name","nickname","displayName","username","manager"]),"Mi equipo")
+        : "Mi equipo";
+      await loadPrivateRoster(String(ownTeamId),ownName,true);
+      privateSetPanelState("Tu plantilla actual está cargada. Puedes elegir otro manager en la lista.","good");
     }else if(tab==="market"){
       privateSetPanelState("Consultando el mercado de la liga…");
       const data=await privateApi(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/market",true);
@@ -2505,14 +2531,14 @@ function renderPrivateLeagueTeams(rows){
     host.appendChild(button);
   });
 }
-async function loadPrivateRoster(teamId,teamName){
+async function loadPrivateRoster(teamId,teamName,force=false){
   selectedPrivateRosterTeam={id:String(teamId),name:String(teamName||"Equipo")};
   const host=$("myLeagueRoster");
   host.classList.remove("hidden");
   host.innerHTML='<div class="private-loading">Cargando plantilla de '+esc(selectedPrivateRosterTeam.name)+'…</div>';
   try{
     const leagueId=privateLeagueId(selectedPrivateLeague);
-    const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/teams/"+encodeURIComponent(teamId));
+    const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/teams/"+encodeURIComponent(teamId),force);
     const rosterPlayers=privateRows(data,"roster");
     selectedPrivateRosterPlayers=rosterPlayers;
     const ownTeamId=selectedPrivateOwnTeamId||privateOwnTeamId(selectedPrivateLeague);
