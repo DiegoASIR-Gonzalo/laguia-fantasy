@@ -1559,6 +1559,16 @@ function lineupEditorOptionLabel(player){
   const value=privateDirectField(master,["marketValue","market_value"]);
   return name+(team?" · "+privateText(team):"")+(value!==null?" · "+privateMoney(value):"");
 }
+function lineupEditorResolveSelectedPlayer(id){
+  return lineupEditorContext?.roster.find(player=>String(lineupEditorPlayerId(player))===String(id))||null;
+}
+function lineupEditorBuildSummary(){
+  const values=lineupEditorSelections;
+  const all=[values.goalkeeper,...values.defender,...values.midfield,...values.striker].filter(Boolean);
+  const unique=new Set(all.map(String)).size;
+  const names=all.map(id=>lineupEditorResolveSelectedPlayer(id)).filter(Boolean).map(lineupEditorPlayerName);
+  return all.length+"/11 puestos seleccionados · "+unique+" fichas distintas."+(names.length?" Once: "+names.join(", "):"");
+}
 function lineupEditorGroupName(group){
   return group==="goalkeeper"?"Portero":group==="defender"?"Defensa":group==="midfield"?"Centrocampista":"Delantero";
 }
