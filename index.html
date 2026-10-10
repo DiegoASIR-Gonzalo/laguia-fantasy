@@ -952,7 +952,7 @@ async function renderBestPlayers(){
   ).join(""):'<div class="empty">Todavía no hay datos suficientes para crear el ranking.</div>';
   box.querySelectorAll("[data-best-id]").forEach(b=>b.onclick=()=>openPlayer(b.dataset.bestId));
 }
-function loadPlayers(force=false){if(loading)return loading;loading=(async()=>{try{setState("loading",force?"Actualizando lista…":"Cargando jugadores…");if(!force){const saved=localStorage.getItem(CACHE_KEY);if(saved){try{const x=JSON.parse(saved);if(Date.now()-x.ts<15*60*1000){players=normalizePlayers(x.data);renderSearch();renderBestPlayers();renderForgotten();renderLineup();lineupAgentAnalyze({type:"improve"});populateComparePlayers();setState("ok","Lista cargada desde caché");return}}catch{}}}const r=await fetch(API+"?path="+encodeURIComponent("/v1/competition/1/players"),{headers:{Accept:"application/json"},cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const raw=await r.json();players=normalizePlayers(raw);localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:Array.isArray(raw)?raw:(raw.players||raw.items||raw.results||raw.data||raw.content||raw)}));renderSearch();renderBestPlayers();renderForgotten();renderLineup();lineupAgentAnalyze({type:"improve"});populateComparePlayers();if(teams)renderTeams();setState("ok","Lista actualizada")}catch(e){players=null;setState("bad","No se pudo cargar la lista");$("results").innerHTML='<div class="empty">No se pudo cargar el catálogo de jugadores. <button class="primary" onclick="loadPlayers(true)">Reintentar</button></div>'}finally{loading=null}})();return loading}
+function loadPlayers(force=false){if(loading)return loading;loading=(async()=>{try{setState("loading",force?"Actualizando lista…":"Cargando jugadores…");if(!force){const saved=localStorage.getItem(CACHE_KEY);if(saved){try{const x=JSON.parse(saved);if(Date.now()-x.ts<15*60*1000){players=normalizePlayers(x.data);renderSearch();renderBestPlayers();renderForgotten();populateComparePlayers();setState("ok","Lista cargada desde caché");return}}catch{}}}const r=await fetch(API+"?path="+encodeURIComponent("/v1/competition/1/players"),{headers:{Accept:"application/json"},cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const raw=await r.json();players=normalizePlayers(raw);localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:Array.isArray(raw)?raw:(raw.players||raw.items||raw.results||raw.data||raw.content||raw)}));renderSearch();renderBestPlayers();renderForgotten();populateComparePlayers();if(teams)renderTeams();setState("ok","Lista actualizada")}catch(e){players=null;setState("bad","No se pudo cargar la lista");$("results").innerHTML='<div class="empty">No se pudo cargar el catálogo de jugadores. <button class="primary" onclick="loadPlayers(true)">Reintentar</button></div>'}finally{loading=null}})();return loading}
 function teamLogo(t){const v=typeof t?.image==="string"?t.image.trim():"";return v&&(/^(https?:\/\/|\/|data:image\/)/i.test(v))&&!/^#[0-9a-f]{3,8}$/i.test(v)?v:null}
 function setTeamsState(type,text){$("teamsState").className="statusline "+type;$("teamsState").innerHTML='<span><span class="dot"></span>'+esc(text)+'</span>'}
 function renderTeams(){
@@ -1339,273 +1339,288 @@ $("calendarNext")?.addEventListener("click",()=>changeCalendarWeek(1));
 $("calendarGo")?.addEventListener("click",()=>{calendarUserSelected=true;loadCalendar()});
 $("calendarWeekInput")?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();calendarUserSelected=true;loadCalendar()}});
 
-// ===== Crear Plantilla =====
-const LINEUP_STORAGE_KEY="lf_lineup_442_v1";
-const LINEUP_SLOTS=[
-  {id:"gk",label:"Portero",group:"goalkeeper",row:"lineupGoalkeeper"},
-  {id:"def1",label:"Defensa",group:"defender",row:"lineupDefenders"},
-  {id:"def2",label:"Defensa",group:"defender",row:"lineupDefenders"},
-  {id:"def3",label:"Defensa",group:"defender",row:"lineupDefenders"},
-  {id:"def4",label:"Defensa",group:"defender",row:"lineupDefenders"},
-  {id:"mid1",label:"Centrocampista",group:"midfielder",row:"lineupMidfielders"},
-  {id:"mid2",label:"Centrocampista",group:"midfielder",row:"lineupMidfielders"},
-  {id:"mid3",label:"Centrocampista",group:"midfielder",row:"lineupMidfielders"},
-  {id:"mid4",label:"Centrocampista",group:"midfielder",row:"lineupMidfielders"},
-  {id:"fwd1",label:"Delantero",group:"forward",row:"lineupForwards"},
-  {id:"fwd2",label:"Delantero",group:"forward",row:"lineupForwards"}
-];
-let lineupSelections={};
-try{lineupSelections=JSON.parse(localStorage.getItem(LINEUP_STORAGE_KEY)||"{}")||{}}catch{lineupSelections={}}
+// ===== Mi alineación real de LALIGA Fantasy =====
+const LINEUP_EDITOR_FORMATIONS=["5-4-1","5-3-2","4-5-1","4-4-2","4-3-3","3-5-2","3-4-3"];
+let lineupEditorLeagues=new Map();
+let lineupEditorContext=null;
+let lineupEditorSelections={goalkeeper:"",defender:[],midfield:[],striker:[]};
 
-function normPosition(v){
-  if(Array.isArray(v))return v.map(normPosition).filter(Boolean).join(" ");
-  return String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-}
-function positionValues(raw){
-  const out=[];
-  const visit=(v,depth=0)=>{
-    if(v===null||v===undefined||depth>3)return;
-    if(Array.isArray(v)){v.slice(0,12).forEach(x=>visit(x,depth+1));return}
-    if(typeof v!=="object"){out.push(v);return}
-    for(const [k,x] of Object.entries(v)){
-      if(/^(position|positions|role|playerPosition|positionCode|positionId|positionType)$/i.test(k))visit(x,depth+1);
-      else if(depth<2&&/^(playerMaster|master|attributes|metadata|data)$/i.test(k))visit(x,depth+1);
+function lineupEditorId(value){
+  if(value===null||value===undefined||value==="")return "";
+  if(typeof value==="string"||typeof value==="number")return String(value);
+  if(Array.isArray(value))return value.length?lineupEditorId(value[0]):"";
+  if(obj(value)){
+    const direct=privateDirectField(value,["playerTeamId","player_team_id","playerId","player_id","id"]);
+    if(direct!==null)return String(direct);
+    for(const key of ["playerTeam","playerTeamData","rosterEntry","player","playerMaster"]){
+      if(value[key]){const nested=lineupEditorId(value[key]);if(nested)return nested}
     }
+  }
+  return "";
+}
+function lineupEditorPosition(player){
+  const master=player?.playerMaster||player?.player||player;
+  const raw=privateDirectField(player,["positionId","position_id","position","role","positionName"]) ??
+    privateDirectField(master,["positionId","position_id","position","role","positionName"]);
+  if(raw===null)return null;
+  const value=normPosition(raw);
+  if(value==="1"||value==="gk"||value.includes("goalkeeper")||value.includes("portero")||value.includes("guardameta"))return "goalkeeper";
+  if(value==="2"||value.includes("defend")||value==="def"||value==="df"||value.includes("defensa"))return "defender";
+  if(value==="3"||value.includes("midfield")||value.includes("centrocamp")||value==="mid"||value==="mf"||value==="medio")return "midfield";
+  if(value==="4"||value.includes("striker")||value.includes("forward")||value.includes("delanter")||value==="fw")return "striker";
+  return null;
+}
+function lineupEditorPlayerName(player){
+  const master=player?.playerMaster||player?.player||player;
+  return privateText(privateDirectField(master,["nickname","name","displayName","fullName","shortName"])??privateDirectField(player,["nickname","name","displayName"]),"Jugador sin nombre");
+}
+function lineupEditorPlayerId(player){return lineupEditorId(player?.playerTeamId??player?.player_team_id??player?.id)}
+function lineupEditorFormation(){return ($("lineupFormationSelect")?.value||"4-4-2").split("-").map(Number)}
+function lineupEditorCollect(){
+  const result={goalkeeper:"",defender:[],midfield:[],striker:[]};
+  const keeper=$("lineupKeeperFields")?.querySelector("select[data-lineup-group='goalkeeper']");
+  result.goalkeeper=keeper?.value||"";
+  for(const group of ["defender","midfield","striker"]){
+    const host=$(group==="defender"?"lineupDefenderFields":group==="midfield"?"lineupMidfieldFields":"lineupStrikerFields");
+    result[group]=host?[...host.querySelectorAll("select[data-lineup-group]")].map(select=>select.value||""):[];
+  }
+  return result;
+}
+function lineupEditorRowIsMine(row){
+  const flags=["isMyTeam","myTeam","ownTeam","isCurrentUser","currentUser","isOwner"];
+  if(flags.some(key=>row?.[key]===true||row?.[key]===1||row?.[key]==="true"))return true;
+  const wanted=privateNormalizeName(privateAuthState?.managerName||"");
+  const wantedId=String(privateAuthState?.userId||"");
+  const candidates=[
+    row?.managerName,row?.manager?.managerName,row?.manager?.name,row?.teamName,row?.name,row?.nickname,
+    row?.user?.managerName,row?.user?.name,row?.owner?.managerName,row?.owner?.name
+  ].filter(value=>typeof value==="string"&&value.trim());
+  if(wanted&&candidates.some(value=>privateNormalizeName(value)===wanted))return true;
+  if(wantedId&&[row?.userId,row?.managerId,row?.ownerId,row?.user?.id,row?.manager?.id,row?.owner?.id].some(value=>value!==undefined&&value!==null&&String(value)===wantedId))return true;
+  return false;
+}
+function lineupEditorGetTeamId(row){
+  const id=privateDirectField(row,["teamId","team_id","managerTeamId","id"]);
+  return id===null?null:String(id);
+}
+async function lineupEditorResolveOwnTeam(league){
+  const direct=privateOwnTeamId(league);
+  if(direct)return String(direct);
+  const leagueId=privateLeagueId(league);
+  if(!leagueId)throw Error("No se ha podido identificar la liga seleccionada.");
+  const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/standing",true);
+  const rows=privateRows(data,"standing");
+  const own=rows.find(lineupEditorRowIsMine);
+  const teamId=own?lineupEditorGetTeamId(own):null;
+  if(teamId)return teamId;
+  throw Error("No he podido identificar con seguridad tu equipo en esa liga. No modificaré ninguna alineación hasta localizar tu equipo propio.");
+}
+async function loadLineupEditorLeagues(force=false){
+  const select=$("lineupLeagueSelect"),button=$("lineupLoadLeagues");
+  if(button)button.disabled=true;
+  try{
+    const authResponse=await fetch("/api/auth",{headers:{Accept:"application/json"},credentials:"same-origin",cache:"no-store"});
+    const authData=await authResponse.json().catch(()=>({authenticated:false}));
+    privateAuthState=authData;setAuthUi(authData);
+    if(!authData.authenticated)throw Error("Inicia sesión con Google antes de cargar tus ligas.");
+    const data=await privateApi(PRIVATE_API_BASE+"/leagues",force);
+    const leagues=privateRows(data,"leagues");
+    const prior=select.value;
+    lineupEditorLeagues=new Map();
+    leagues.forEach(league=>{const id=privateLeagueId(league);if(id!==null)lineupEditorLeagues.set(String(id),league)});
+    select.innerHTML='<option value="">Selecciona una liga…</option>'+
+      [...lineupEditorLeagues.entries()].map(([id,league])=>'<option value="'+esc(id)+'">'+esc(privateLeagueName(league))+'</option>').join("");
+    if(prior&&lineupEditorLeagues.has(prior))select.value=prior;
+    if(!lineupEditorLeagues.size)throw Error("La cuenta no tiene ligas disponibles o la respuesta no incluye IDs reconocibles.");
+    $("lineupEditor").classList.add("hidden");
+    lineupEditorContext=null;
+    $("lineupEditorStatus").className="private-state good";
+    $("lineupEditorStatus").textContent="Se han encontrado "+lineupEditorLeagues.size+" liga(s). Selecciona una y carga tu alineación.";
+  }catch(error){
+    $("lineupEditorStatus").className="private-state error";
+    $("lineupEditorStatus").textContent=error?.message||"No se pudieron cargar tus ligas.";
+  }finally{if(button)button.disabled=false}
+}
+function lineupEditorReadFormation(raw){
+  const root=raw?.lineup&&obj(raw.lineup)?raw.lineup:raw;
+  let source=root?.tactical_formation??root?.tacticalFormation??root?.formation?.tacticalFormation??root?.formation??null;
+  if(obj(source))source=source.tacticalFormation??source.tactical_formation??source.value??null;
+  let values=[];
+  if(Array.isArray(source))values=source.map(Number);
+  else if(typeof source==="string")values=source.split(/[-,;/\s]+/).map(Number);
+  if(values.length===3&&values.every(Number.isInteger)){
+    const formatted=values.join("-");
+    if(LINEUP_EDITOR_FORMATIONS.includes(formatted))return formatted;
+  }
+  return "4-4-2";
+}
+function lineupEditorApplyCurrentLineup(raw){
+  const root=raw?.lineup&&obj(raw.lineup)?raw.lineup:raw;
+  const arrayFrom=value=>Array.isArray(value)?value:(value===null||value===undefined?[]:[value]);
+  lineupEditorSelections={
+    goalkeeper:lineupEditorId(root?.goalkeeper),
+    defender:arrayFrom(root?.defender??root?.defenders).map(lineupEditorId).filter(Boolean),
+    midfield:arrayFrom(root?.midfield??root?.midfielders).map(lineupEditorId).filter(Boolean),
+    striker:arrayFrom(root?.striker??root?.strikers).map(lineupEditorId).filter(Boolean)
   };
-  visit(raw);
-  return out;
+  $("lineupFormationSelect").value=lineupEditorReadFormation(raw);
+  lineupEditorRenderFields();
 }
-function positionGroupFromValue(v){
-  const value=normPosition(v);
-  if(!value)return null;
-  if(/^0$/.test(value)||/^1$/.test(value))return "goalkeeper";
-  if(/^2$/.test(value))return "defender";
-  if(/^3$/.test(value))return "midfielder";
-  if(/^4$/.test(value)||/^5$/.test(value))return "forward";
-  const tokens=new Set(value.split(/\s+/));
-  if(tokens.has("gk")||tokens.has("por")||tokens.has("goal")||value.includes("goalkeeper")||value.includes("portero"))return "goalkeeper";
-  if(tokens.has("def")||tokens.has("defender")||tokens.has("df")||tokens.has("d")||tokens.has("cb")||tokens.has("lb")||tokens.has("rb")||tokens.has("lwb")||tokens.has("rwb")||value.includes("defend")||value.includes("back"))return "defender";
-  if(tokens.has("mid")||tokens.has("mf")||tokens.has("med")||tokens.has("mc")||tokens.has("md")||tokens.has("mi")||tokens.has("dm")||tokens.has("am")||tokens.has("cm")||value.includes("midfield")||value.includes("centrocamp")||value.includes("medio"))return "midfielder";
-  if(tokens.has("fwd")||tokens.has("fw")||tokens.has("att")||tokens.has("del")||tokens.has("dc")||tokens.has("st")||tokens.has("cf")||tokens.has("lw")||tokens.has("rw")||value.includes("attack")||value.includes("forward")||value.includes("delanter")||value.includes("striker"))return "forward";
-  return null;
+async function loadLineupEditorTeam(){
+  const button=$("lineupLoadTeam"),leagueId=$("lineupLeagueSelect").value;
+  if(button)button.disabled=true;
+  try{
+    const league=lineupEditorLeagues.get(String(leagueId));
+    if(!league)throw Error("Selecciona primero una liga válida.");
+    const authResponse=await fetch("/api/auth",{headers:{Accept:"application/json"},credentials:"same-origin",cache:"no-store"});
+    const auth=await authResponse.json().catch(()=>({authenticated:false}));
+    privateAuthState=auth;setAuthUi(auth);
+    if(!auth.authenticated)throw Error("Tu sesión no está activa. Inicia sesión de nuevo.");
+    $("lineupEditorStatus").className="private-state";
+    $("lineupEditorStatus").textContent="Identificando tu equipo y cargando plantilla y alineación…";
+    const teamId=await lineupEditorResolveOwnTeam(league);
+    const [rosterData,lineupData]=await Promise.all([
+      privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/teams/"+encodeURIComponent(teamId),true),
+      privateApi(PRIVATE_API_BASE+"/teams/"+encodeURIComponent(teamId)+"/lineup",true)
+    ]);
+    const roster=privateRows(rosterData,"roster").filter(player=>lineupEditorPlayerId(player));
+    if(!roster.length)throw Error("La API no devolvió fichas de jugadores reconocibles para tu equipo.");
+    selectedPrivateOwnTeamId=String(teamId);
+    lineupEditorContext={league:league,leagueId:String(leagueId),teamId:String(teamId),roster:roster,currentLineup:lineupData};
+    lineupEditorApplyCurrentLineup(lineupData);
+    $("lineupEditorTeamName").textContent=privateText(privateField(league,["teamName","managerName","name"]),"Tu equipo");
+    $("lineupEditorLeagueMeta").textContent="Liga: "+privateLeagueName(league)+" · "+roster.length+" fichas disponibles";
+    $("lineupEditor").classList.remove("hidden");
+    $("lineupEditorStatus").className="private-state good";
+    $("lineupEditorStatus").textContent="Alineación cargada. Revisa los puestos y guarda solo cuando el once sea correcto.";
+  }catch(error){
+    lineupEditorContext=null;
+    $("lineupEditor").classList.add("hidden");
+    $("lineupEditorStatus").className="private-state error";
+    $("lineupEditorStatus").textContent=error?.message||"No se ha podido cargar tu alineación.";
+  }finally{if(button)button.disabled=false}
 }
-function playerPositionGroup(p){
-  const candidates=[p?.position,...positionValues(p?.raw)];
-  for(const value of candidates){
-    const group=positionGroupFromValue(value);
-    if(group)return group;
-  }
-  return null;
+function lineupEditorOptionLabel(player){
+  const name=lineupEditorPlayerName(player);
+  const master=player?.playerMaster||player?.player||player;
+  const team=privateField(master,["teamName","clubName","team"]);
+  const value=privateDirectField(master,["marketValue","market_value"]);
+  return name+(team?" · "+privateText(team):"")+(value!==null?" · "+privateMoney(value):"");
 }
-function lineupPlayerById(id){return (players||[]).find(p=>String(p.id)===String(id))||null}
-function selectedLineupIds(){return new Set(Object.values(lineupSelections).filter(Boolean).map(String))}
-function lineupTeamForPlayer(p){
-  if(!p)return null;
-  if(p.teamId!=null&&teams){const t=teams.find(x=>String(x.id)===String(p.teamId));if(t)return t}
-  return teamForPlayer(p.raw||p);
+function lineupEditorRenderSelects(group,count,values){
+  const roster=lineupEditorContext?.roster||[];
+  const source=roster.filter(player=>lineupEditorPosition(player)===group)
+    .sort((a,b)=>lineupEditorPlayerName(a).localeCompare(lineupEditorPlayerName(b),"es"));
+  const selections=lineupEditorSelections;
+  const idsInOtherSlots=new Set();
+  if(selections.goalkeeper&&group!=="goalkeeper")idsInOtherSlots.add(String(selections.goalkeeper));
+  for(const other of ["defender","midfield","striker"])if(group!==other)(selections[other]||[]).forEach(id=>{if(id)idsInOtherSlots.add(String(id))});
+  const fieldLabel=group==="goalkeeper"?"Portero":group==="defender"?"Defensa":group==="midfield"?"Centrocampista":"Delantero";
+  if(!source.length)return '<div class="empty">No se reconocieron jugadores de la posición '+esc(fieldLabel.toLowerCase())+' en la respuesta de tu plantilla.</div>';
+  return Array.from({length:count},(_,index)=>{
+    const current=values[index]||"";
+    const usedOther=new Set(idsInOtherSlots);
+    if(group!=="goalkeeper")values.forEach((id,i)=>{if(i!==index&&id)usedOther.add(String(id))});
+    const options=['<option value="">Selecciona jugador…</option>'].concat(source.map(player=>{
+      const id=lineupEditorPlayerId(player);
+      const disabled=usedOther.has(String(id))&&String(id)!==String(current);
+      return '<option value="'+esc(id)+'"'+(String(id)===String(current)?' selected':'')+(disabled?' disabled':'')+'>'+esc(lineupEditorOptionLabel(player))+'</option>';
+    }));
+    if(current&&!source.some(player=>String(lineupEditorPlayerId(player))===String(current)))options.splice(1,0,'<option value="'+esc(current)+'" selected>Jugador actual no identificado · '+esc(current)+'</option>');
+    return '<label class="private-lineup-field"><span>'+esc(fieldLabel)+" "+(index+1)+'</span><select data-lineup-group="'+esc(group)+'" data-slot-index="'+index+'">'+options.join("")+'</select></label>';
+  }).join("");
 }
-function lineupTeamLogo(p){const t=lineupTeamForPlayer(p);return teamLogo(t)}
-function lineupDisplayPlayer(p,slot){
-  const logo=lineupTeamLogo(p);
-  return '<div class="lineup-card">'+
-    (p.image?'<img class="lineup-avatar" src="'+esc(p.image)+'" alt="" loading="lazy">':'<div class="lineup-avatar"></div>')+
-    (logo?'<img class="lineup-team-logo" src="'+esc(logo)+'" alt="" loading="lazy">':"")+ 
-    '<div class="lineup-name">'+esc(p.name)+'</div>'+ 
-  '</div><div class="lineup-slot-hint">'+esc(slot.label)+'</div>';
-}
-function lineupEmptySlot(slot){
-  return '<div class="lineup-card empty"><span class="lineup-add">+</span><span class="lineup-add-label">Añadir</span></div><div class="lineup-slot-hint">'+esc(slot.label)+'</div>';
-}
-function renderLineup(){
-  const status=$("createTeamStatus");
-  if(!status)return;
-  for(const rowId of ["lineupGoalkeeper","lineupDefenders","lineupMidfielders","lineupForwards"]){
-    const row=$(rowId);if(row)row.innerHTML="";
-  }
-  for(const slot of LINEUP_SLOTS){
-    const row=$(slot.row);if(!row)continue;
-    const p=lineupPlayerById(lineupSelections[slot.id]);
-    const button=document.createElement("button");button.type="button";button.className="lineup-slot";button.dataset.slot=slot.id;button.title=p?"Cambiar jugador":"Añadir jugador";
-    button.innerHTML=p?lineupDisplayPlayer(p,slot):lineupEmptySlot(slot);
-    button.onclick=()=>openLineupPicker(slot.id);
-    row.appendChild(button);
-  }
-  const filled=LINEUP_SLOTS.map(s=>lineupPlayerById(lineupSelections[s.id])).filter(Boolean);
-  const avgValues=filled.map(p=>num(p.avg)).filter(v=>v!==null);
-  const squadAvg=avgValues.length?avgValues.reduce((a,b)=>a+b,0)/avgValues.length:null;
-  const rating=$("createTeamRating"),ratingMeta=$("createTeamRatingMeta");
-  if(rating&&ratingMeta){
-    rating.textContent=squadAvg===null?"—":squadAvg.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2});
-    if(!filled.length)ratingMeta.textContent="Selecciona jugadores para calcularla";
-    else if(avgValues.length===filled.length)ratingMeta.textContent=filled.length+" jugador"+(filled.length===1?"":"es")+" seleccionados";
-    else ratingMeta.textContent=avgValues.length+" de "+filled.length+" con media disponible";
-  }
-  if(!players){status.textContent="Cargando jugadores…";return}
-  status.textContent=filled.length+"/11 posiciones ocupadas · "+(filled.length===11?"Once completo.":"Pulsa una posición para elegir un jugador.");
-}
-function saveLineup(){localStorage.setItem(LINEUP_STORAGE_KEY,JSON.stringify(lineupSelections))}
-function clearLineup(){lineupSelections={};saveLineup();renderLineup();lineupAgentAnalyze({type:"improve"})}
-function lineupPickerRows(slot,q=""){
-  const used=selectedLineupIds();
-  const qq=q.trim().toLowerCase();
-  return (players||[]).filter(p=>{
-    if(playerPositionGroup(p)!==slot.group)return false;
-    if(used.has(String(p.id))&&String(lineupSelections[slot.id])!==String(p.id))return false;
-    if(!qq)return true;
-    return [p.name,p.team,String(p.id),String(p.position||""),positionLabel(p)].some(x=>String(x||"").toLowerCase().includes(qq));
-  }).sort((a,b)=>{
-    const aa=a.avg==null?-Infinity:Number(a.avg),bb=b.avg==null?-Infinity:Number(b.avg);
-    return bb-aa || String(a.name).localeCompare(String(b.name),"es");
-  }).slice(0,120);
-}
-function renderLineupPickerContent(slot,q=""){
-  const rows=lineupPickerRows(slot,q);
-  return '<div class="modal-body lineup-picker">'+
-    '<div class="lineup-picker-intro">Elige un <strong>'+esc(slot.label.toLowerCase())+'</strong>. '+rows.length+' jugador'+(rows.length===1?'':'es')+' disponible'+(rows.length===1?'':'s')+'. Puedes buscar o elegir directamente de la lista.</div>'+
-    '<input id="lineupPickerSearch" class="lineup-picker-search" type="search" placeholder="Buscar jugador…" autocomplete="off" value="'+esc(q)+'">'+
-    '<div id="lineupPickerList" class="lineup-picker-list">'+
-      (rows.length?rows.map(p=>{
-        const logo=lineupTeamLogo(p),disabled=selectedLineupIds().has(String(p.id))&&String(lineupSelections[slot.id])!==String(p.id);
-        return '<button type="button" class="lineup-picker-player" data-lineup-player="'+esc(p.id)+'"'+(disabled?' disabled':'')+'>'+
-          (p.image?'<img src="'+esc(p.image)+'" alt="" loading="lazy">':'<span style="width:38px;height:38px;display:block;background:#050505"></span>')+
-          '<span><span class="lineup-picker-name">'+esc(p.name)+'</span><span class="lineup-picker-team">'+esc(p.team||"Equipo no indicado")+'</span></span>'+ 
-          '<span class="lineup-picker-meta">'+esc(positionLabel(p))+'</span></button>';
-      }).join(""):'<div class="empty">No hay jugadores disponibles con esa posición en los datos cargados.</div>')+
-    '</div></div>';
-}
-function positionLabel(p){
-  const g=playerPositionGroup(p);
-  return g==="goalkeeper"?"Portero":g==="defender"?"Defensa":g==="midfielder"?"Medio":g==="forward"?"Delantero":"Posición no indicada";
-}
-function bindLineupPicker(slot){
-  const search=$("lineupPickerSearch"),list=$("lineupPickerList");if(!search||!list)return;
-  search.focus();search.setSelectionRange(search.value.length,search.value.length);
-  search.oninput=()=>{
-    const q=search.value;const html=renderLineupPickerContent(slot,q);
-    const wrap=document.createElement("div");wrap.innerHTML=html;
-    const newSearch=wrap.querySelector("#lineupPickerSearch"),newList=wrap.querySelector("#lineupPickerList");
-    list.replaceWith(newList);search.replaceWith(newSearch);
-    bindLineupPicker(slot);
+function lineupEditorRenderFields(){
+  if(!lineupEditorContext)return;
+  const formation=lineupEditorFormation();
+  lineupEditorSelections={
+    goalkeeper:lineupEditorSelections.goalkeeper||"",
+    defender:(lineupEditorSelections.defender||[]).slice(0,formation[0]),
+    midfield:(lineupEditorSelections.midfield||[]).slice(0,formation[1]),
+    striker:(lineupEditorSelections.striker||[]).slice(0,formation[2])
   };
-  list.querySelectorAll("[data-lineup-player]").forEach(b=>b.onclick=()=>{
-    const id=String(b.dataset.lineupPlayer);
-    for(const key of Object.keys(lineupSelections))if(String(lineupSelections[key])===id)delete lineupSelections[key];
-    lineupSelections[slot.id]=id;saveLineup();renderLineup();lineupAgentAnalyze({type:"improve"});$("closeModal").click();
-  });
+  $("lineupKeeperFields").innerHTML=lineupEditorRenderSelects("goalkeeper",1,[lineupEditorSelections.goalkeeper]);
+  $("lineupDefenderFields").innerHTML=lineupEditorRenderSelects("defender",formation[0],lineupEditorSelections.defender);
+  $("lineupMidfieldFields").innerHTML=lineupEditorRenderSelects("midfield",formation[1],lineupEditorSelections.midfield);
+  $("lineupStrikerFields").innerHTML=lineupEditorRenderSelects("striker",formation[2],lineupEditorSelections.striker);
+  $("lineupEditorSummary").textContent=lineupEditorBuildSummary();
 }
-async function openLineupPicker(slotId){
-  const slot=LINEUP_SLOTS.find(x=>x.id===slotId);if(!slot)return;
-  $("modalTitle").textContent="Elegir jugador";
-  $("modalRoute").textContent="Posición: "+slot.label;
-  if(!players){
-    $("modalContent").innerHTML='<div class="modal-body"><div class="empty">Cargando jugadores…</div></div>';
-    $("modal").classList.remove("hidden");$("modal").setAttribute("aria-hidden","false");
-    await loadPlayers(false);
-    if(!players){$("modalContent").innerHTML='<div class="modal-body"><div class="empty">No se pudo cargar la lista de jugadores.</div></div>';return}
+function lineupEditorUpdateFromDom(){
+  lineupEditorSelections=lineupEditorCollect();
+  lineupEditorRenderFields();
+}
+function lineupEditorResolveSelectedPlayer(id){
+  return lineupEditorContext?.roster.find(player=>String(lineupEditorPlayerId(player))===String(id))||null;
+}
+function lineupEditorBuildSummary(){
+  const values=lineupEditorSelections;
+  const all=[values.goalkeeper,...values.defender,...values.midfield,...values.striker].filter(Boolean);
+  const unique=new Set(all.map(String)).size;
+  const names=all.map(id=>lineupEditorResolveSelectedPlayer(id)).filter(Boolean).map(lineupEditorPlayerName);
+  return all.length+"/11 puestos seleccionados · "+unique+" fichas distintas."+(names.length?" Once: "+names.join(", "):"");
+}
+async function saveLineupEditor(){
+  const context=lineupEditorContext;
+  if(!context)throw Error("Carga primero la alineación de tu equipo.");
+  lineupEditorSelections=lineupEditorCollect();
+  const formation=lineupEditorFormation();
+  const payload={
+    goalkeeper:lineupEditorSelections.goalkeeper,
+    defender:lineupEditorSelections.defender,
+    midfield:lineupEditorSelections.midfield,
+    striker:lineupEditorSelections.striker,
+    tactical_formation:formation
+  };
+  const all=[payload.goalkeeper,...payload.defender,...payload.midfield,...payload.striker].filter(Boolean).map(String);
+  if(all.length!==11||new Set(all).size!==11)throw Error("El once debe tener 11 jugadores distintos antes de guardarlo.");
+  for(const group of ["goalkeeper","defender","midfield","striker"]){
+    const chosen=group==="goalkeeper"?[payload.goalkeeper]:payload[group];
+    for(const id of chosen){
+      const player=lineupEditorResolveSelectedPlayer(id);
+      if(!player)throw Error("Una selección no pertenece a tu plantilla actual. Recarga la plantilla y vuelve a seleccionarla.");
+      if(lineupEditorPosition(player)!==group)throw Error("La posición de "+lineupEditorPlayerName(player)+" no coincide con el puesto elegido.");
+    }
   }
-  $("modalContent").innerHTML=renderLineupPickerContent(slot);
-  $("modal").classList.remove("hidden");$("modal").setAttribute("aria-hidden","false");
-  bindLineupPicker(slot);
-}
-$("clearLineup")?.addEventListener("click",()=>{
-  if(Object.keys(lineupSelections).length&&!confirm("¿Vaciar toda la plantilla?"))return;
-  clearLineup();
-});
-
-// ===== Mini agente de plantilla =====
-function lineupAgentSelected(){
-  return LINEUP_SLOTS.map(slot=>{
-    const p=lineupPlayerById(lineupSelections[slot.id]);
-    return {slot,p};
-  });
-}
-function lineupAgentRoleFromText(text){
-  const q=normPosition(text);
-  if(/portero|porter|gk|goalkeeper|guardameta/.test(q))return "goalkeeper";
-  if(/defensa|defender|def|lateral|central/.test(q))return "defender";
-  if(/centrocamp|medi|midfield|medio|volante/.test(q))return "midfielder";
-  if(/delanter|forward|attack|striker|punta/.test(q))return "forward";
-  return null;
-}
-function lineupAgentRoleLabel(group){
-  return group==="goalkeeper"?"portero":group==="defender"?"defensa":group==="midfielder"?"centrocampista":"delantero";
-}
-function lineupAgentCandidates(group,excludeIds=new Set(),limit=5){
-  return (players||[])
-    .filter(p=>playerPositionGroup(p)===group && p.avg!==null && Number.isFinite(Number(p.avg)) && !excludeIds.has(String(p.id)))
-    .sort((a,b)=>Number(b.avg)-Number(a.avg)||String(a.name).localeCompare(String(b.name),"es"))
-    .slice(0,limit);
-}
-function lineupAgentPill(p){
-  return '<span class="lineup-agent-player">'+(p.image?'<img src="'+esc(p.image)+'" alt="">':'')+'<strong>'+esc(p.name)+'</strong> <span>'+Number(p.avg).toLocaleString("es-ES",{maximumFractionDigits:2})+' pts</span></span>';
-}
-function lineupAgentRender(html){const box=$("lineupAgentResult");if(box)box.innerHTML=html}
-function lineupAgentAnalyze(prompt="improve"){
-  if(!players){lineupAgentRender('Todavía estoy cargando los jugadores de la competición.');return}
-  const selected=lineupAgentSelected();
-  const selectedIds=selected.filter(x=>x.p).map(x=>String(x.p.id));
-  const filled=selected.filter(x=>x.p);
-  if(!filled.length){
-    const top=LINEUP_SLOTS.reduce((acc,slot)=>{
-      if(!acc[slot.group])acc[slot.group]=lineupAgentCandidates(slot.group,new Set(),3);
-      return acc;
-    },{});
-    lineupAgentRender('<strong>Tu plantilla está vacía.</strong> Empieza por elegir los jugadores mejor valorados en cada posición. '+
-      Object.entries(top).map(([g,rows])=>'<div><strong>'+lineupAgentRoleLabel(g)+':</strong> '+(rows.length?rows.map(lineupAgentPill).join(" "):"sin datos suficientes")+'</div>').join(''));
-    return;
-  }
-  const role=prompt.role||lineupAgentRoleFromText(prompt.text||"");
-  const exclude=new Set(selectedIds);
-  const targetSlots=role?selected.filter(x=>x.slot.group===role):selected;
-  const advice=[];
-  targetSlots.forEach(({slot,p})=>{
-    const pool=lineupAgentCandidates(slot.group,exclude,4);
-    if(!p){
-      if(pool.length)advice.push({gain:Number(pool[0].avg),html:'<li><strong>'+slot.label+':</strong> está libre. Mejor disponible: '+lineupAgentPill(pool[0])+'</li>'});
+  const label=id=>lineupEditorPlayerName(lineupEditorResolveSelectedPlayer(id));
+  const summary="GUARDAR ALINEACIÓN\n\nLiga: "+privateLeagueName(context.league)+"\nEquipo: "+$("lineupEditorTeamName").textContent+"\nFormación: "+formation.join("-")+"\n\nPortero: "+label(payload.goalkeeper)+"\nDefensas: "+payload.defender.map(label).join(", ")+"\nCentrocampistas: "+payload.midfield.map(label).join(", ")+"\nDelanteros: "+payload.striker.map(label).join(", ")+"\n\nEsto sustituirá el once actual de tu equipo. ¿Confirmas el guardado?";
+  $("lineupSaveCurrent").disabled=true;
+  $("lineupEditorStatus").className="private-state";
+  $("lineupEditorStatus").textContent="Preparando los cambios para confirmación…";
+  try{
+    const result=await privateApiWrite(PRIVATE_API_BASE+"/teams/"+encodeURIComponent(context.teamId)+"/lineup",payload,"PUT",summary);
+    if(result?.cancelled){
+      $("lineupEditorStatus").textContent="Cambios cancelados. No se ha enviado ninguna modificación.";
       return;
     }
-    const better=pool.filter(x=>Number(x.avg)>Number(p.avg)).slice(0,2);
-    if(better.length){
-      advice.push({gain:Number(better[0].avg)-Number(p.avg),html:'<li><strong>'+esc(p.name)+'</strong> ('+Number(p.avg).toLocaleString("es-ES",{maximumFractionDigits:2})+' pts) puede mejorar por '+better.map(lineupAgentPill).join(' ')+'</li>'});
+    $("lineupEditorStatus").className="private-state good";
+    $("lineupEditorStatus").textContent="LALIGA ha aceptado el guardado. Recargando la alineación…";
+    await loadLineupEditorTeam();
+  }catch(error){
+    $("lineupEditorStatus").className="private-state error";
+    $("lineupEditorStatus").textContent=error?.message||"No se pudo guardar la alineación.";
+  }finally{$("lineupSaveCurrent").disabled=false}
+}
+function initLineupEditor(){
+  $("lineupLoadLeagues")?.addEventListener("click",()=>loadLineupEditorLeagues(true));
+  $("lineupLoadTeam")?.addEventListener("click",loadLineupEditorTeam);
+  $("lineupReloadCurrent")?.addEventListener("click",()=>{if(lineupEditorContext)loadLineupEditorTeam()});
+  $("lineupSaveCurrent")?.addEventListener("click",saveLineupEditor);
+  $("lineupFormationSelect")?.addEventListener("change",()=>{
+    if(!lineupEditorContext)return;
+    const previous=lineupEditorCollect();
+    const next=lineupEditorFormation();
+    const dropped=previous.defender.slice(next[0]).concat(previous.midfield.slice(next[1]),previous.striker.slice(next[2])).filter(Boolean);
+    lineupEditorSelections=previous;
+    lineupEditorRenderFields();
+    if(dropped.length){
+      $("lineupEditorStatus").className="private-state";
+      $("lineupEditorStatus").textContent="La formación cambió; se han retirado "+dropped.length+" selección(es) que no caben en el nuevo esquema. Revisa el once antes de guardar.";
     }
   });
-  advice.sort((a,b)=>b.gain-a.gain);
-  if(prompt.type==="empty"){
-    const empty=selected.filter(x=>!x.p);
-    if(!empty.length){lineupAgentRender('<strong>Tienes las 11 posiciones ocupadas.</strong> Puedo buscarte mejoras sobre los jugadores actuales.');return}
-    const groups=[...new Set(empty.map(x=>x.slot.group))];
-    const rows=groups.map(g=>{const best=lineupAgentCandidates(g,exclude,3);return '<li><strong>'+lineupAgentRoleLabel(g)+':</strong> '+(best.length?best.map(lineupAgentPill).join(' '):'sin datos suficientes')+'</li>'}).join('');
-    lineupAgentRender('<strong>Te faltan '+empty.length+' posiciones.</strong><ul>'+rows+'</ul>');return;
-  }
-  if(prompt.type==="best"){
-    const groups=role?[role]:[...new Set(selected.map(x=>x.slot.group))];
-    const rows=groups.map(g=>{const best=lineupAgentCandidates(g,exclude,3);return '<li><strong>'+lineupAgentRoleLabel(g)+':</strong> '+(best.length?best.map(lineupAgentPill).join(' '):'sin alternativas con media disponible')+'</li>'}).join('');
-    lineupAgentRender('<strong>Estas son las alternativas mejor valoradas</strong> '+(role?('para '+lineupAgentRoleLabel(role)+'.'): 'por posición.')+'<ul>'+rows+'</ul>');return;
-  }
-  if(!advice.length){
-    lineupAgentRender('<strong>No veo una mejora clara con los datos disponibles.</strong> Tu selección ya está entre las mejores medias disponibles en '+(role?'esa posición.':'las posiciones ocupadas.')+'');return;
-  }
-  const squadPlayers=filled.map(x=>x.p).filter(p=>p.avg!==null);
-  const currentAvg=squadPlayers.length?squadPlayers.reduce((a,p)=>a+Number(p.avg),0)/squadPlayers.length:null;
-  lineupAgentRender('<strong>Prioridad de mejora:</strong><ul>'+advice.slice(0,5).map(x=>x.html).join('')+'</ul>'+(currentAvg!==null?'<div style="margin-top:8px">Media actual de la plantilla: <strong>'+currentAvg.toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+' pts</strong>.</div>':''));
+  ["lineupKeeperFields","lineupDefenderFields","lineupMidfieldFields","lineupStrikerFields"].forEach(id=>{
+    $(id)?.addEventListener("change",event=>{if(event.target?.matches("select[data-lineup-group]"))lineupEditorUpdateFromDom()});
+  });
 }
-function lineupAgentRunQuery(){
-  const input=$("lineupAgentQuery");
-  const text=input?.value.trim()||"";
-  const role=lineupAgentRoleFromText(text);
-  const lower=normPosition(text);
-  const type=/falt|vac|sin cubrir|libre/.test(lower)?"empty":/alternativa|mejor valorad|mejor que|cambiar|sustitu|reemplaz/.test(lower)?"best":"improve";
-  lineupAgentAnalyze({text,role,type});
-}
-$("lineupAgentAsk")?.addEventListener("click",lineupAgentRunQuery);
-$("lineupAgentQuery")?.addEventListener("keydown",e=>{if(e.key==="Enter")lineupAgentRunQuery()});
-document.querySelectorAll("[data-agent-prompt]").forEach(b=>b.addEventListener("click",()=>{
-  const type=b.dataset.agentPrompt;
-  if(type==="improve")lineupAgentAnalyze({type:"improve"});
-  else if(type==="best")lineupAgentAnalyze({type:"best"});
-  else lineupAgentAnalyze({type:"empty"});
-}));
-
 function scalar(v){if(v===null)return'<span style="color:#c8b7ff">No disponible</span>';if(typeof v==="boolean")return v?"Sí":"No";if(typeof v==="number")return v.toLocaleString("es-ES");return esc(v)}
 function mediaList(data,out=[]){if(Array.isArray(data)){data.slice(0,200).forEach(x=>mediaList(x,out));return out}if(obj(data))for(const[k,v]of Object.entries(data)){if(typeof v==="string"&&imgUrl(v)&&/(image|photo|avatar|logo|badge|crest|icon|picture|thumbnail|url)/i.test(k))out.push([k,v]);else if(obj(v))mediaList(v,out)}return out}
 function valuesTable(data){if(!Array.isArray(data)||!data.length||data.some(x=>!obj(x)||Array.isArray(x)))return null;const keys=[...new Set(data.flatMap(x=>Object.keys(x)))].slice(0,24);return'<div class="kv">'+keys.map(k=>'<div class="key">'+esc(tr(k))+'</div><div>'+esc(String(data[0]?.[k]??""))+'</div>').join("")+'</div>'}
@@ -2480,13 +2495,14 @@ document.querySelectorAll("[data-section]").forEach(b=>b.onclick=()=>{
   $(b.dataset.section).classList.add("active");
   if(b.dataset.section==="calendar")loadCalendar();
   if(b.dataset.section==="my-leagues")loadMyLeagues();
+  if(b.dataset.section==="create-team")loadLineupEditorLeagues();
 });
 $("closeModal").onclick=()=>{$("modal").classList.add("hidden");$("modal").setAttribute("aria-hidden","true")};$("modal").onclick=e=>{if(e.target===$("modal"))$("closeModal").click()};document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("modal").classList.contains("hidden"))$("closeModal").click();if(e.key==="Escape"&&!$("authModal").classList.contains("hidden"))$("closeAuth").click()});
 $("apiGrid").replaceChildren(...EPS.map(apiCard));
 renderSearch();
 renderBestPlayers();
 renderForgotten();
-renderLineup();
+initLineupEditor();
 populateComparePlayers();
 checkAuth();
 const loginQuery=new URLSearchParams(location.search);
