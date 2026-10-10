@@ -2011,28 +2011,42 @@ async function loadPrivateMarketBalance(force=false){
     return null;
   }
 }
-async function privateApiWrite(path,payload,method="POST"){
+async function privateApiWrite(path,payload,method="POST",confirmationText=""){
   if(!privateAuthState?.authenticated)throw Error("Inicia sesión antes de realizar una operación.");
-  const response=await fetch("/api/auth?path="+encodeURIComponent(path),{
-    method,headers:{"Content-Type":"application/json","Accept":"application/json"},
-    credentials:"same-origin",cache:"no-store",body:payload===undefined?undefined:JSON.stringify(payload)
-  });
-  const raw=await response.text();
-  let data={};
-  try{data=raw?JSON.parse(raw):{}}catch{data={message:raw.slice(0,500)}}
-  if(!response.ok){
-    const detail=privateErrorMessage(data,response.status);
-    if(response.status===404||response.status===405||/oauth|redirect|method not allowed|not supported/i.test(String(detail))){
-      throw Error("El servidor de esta página todavía no permite operaciones de escritura. La puja o el clausulazo no se han confirmado; hace falta habilitar POST en el proxy del servidor.");
-    }
-    throw Error(detail+". La operación no se ha confirmado; actualiza mercado y saldo antes de volver a intentarlo.");
+  if(!["POST","PUT"].includes(method))throw Error("Esta operación no está permitida.");
+  const endpoint="/api/auth?path="+encodeURIComponent(path);
+  const send=async body=>{
+    const response=await fetch(endpoint,{
+      method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},
+      credentials:"same-origin",cache:"no-store",body:JSON.stringify(body)
+    });
+    const raw=await response.text();
+    let data={};
+    try{data=raw?JSON.parse(raw):{}}catch{data={message:raw.slice(0,500)}}
+    return {response,data};
+  };
+  const prepared=await send({actionPhase:"prepare",upstreamMethod:method,payload});
+  if(!prepared.response.ok||!prepared.data?.prepared||!prepared.data?.approvalToken){
+    throw Error(privateErrorMessage(prepared.data,prepared.response.status)+". No se ha enviado la operación a LALIGA.");
   }
-  // Some auth-only handlers return HTTP 200 even when they do not proxy the requested mutation.
-  if(obj(data)&&("authenticated" in data)&&!("success" in data)&&!("result" in data)&&!("transactionId" in data)){
-    throw Error("El servidor respondió al flujo de autenticación y no confirmó la operación de mercado. Hace falta habilitar escrituras en el proxy.");
+  const answer=confirmationText||
+    "Vas a ejecutar una operación de escritura en LALIGA Fantasy.\n\n¿Confirmas esta acción?";
+  if(!window.confirm(answer+"\n\nLa acción se ha validado y la confirmación caduca en 90 segundos.")){
+    return {cancelled:true};
+  }
+  const confirmed=await send({
+    actionPhase:"confirm",
+    upstreamMethod:method,
+    payload,
+    approvalToken:prepared.data.approvalToken,
+    confirmed:true
+  });
+  if(!confirmed.response.ok||confirmed.data?.success!==true){
+    const detail=privateErrorMessage(confirmed.data,confirmed.response.status);
+    throw Error(detail+". No se ha confirmado el éxito; actualiza mercado, saldo o alineación antes de volver a intentarlo.");
   }
   privateApiCache.clear();
-  return data;
+  return confirmed.data;
 }
 function privateMarketId(item){
   let id=privateDirectField(item,["marketId","market_id","marketPlayerId","marketPlayerID","listingId","marketItemId","marketEntryId"]);
@@ -2061,12 +2075,16 @@ async function placePrivateBid(item,index,button){
   if(amount<minimum){alert("La puja no puede ser inferior al valor mínimo de "+privateMoney(minimum)+".");return}
   const overBalance=selectedPrivateBalance!==null&&amount>selectedPrivateBalance;
   const warning=overBalance?"\n\nAviso: tu saldo actual es "+privateMoney(selectedPrivateBalance)+" y esta puja lo supera. La liga puede rechazarla por sus límites de endeudamiento.":"";
-  if(!confirm("Vas a pujar "+privateMoney(amount)+" por "+info.name+".\n\nLiga: "+privateLeagueName(selectedPrivateLeague)+"\nSaldo actual: "+(selectedPrivateBalance===null?"no disponible":privateMoney(selectedPrivateBalance))+warning+"\n\n¿Confirmas el envío de la puja?"))return;
   if(button)button.disabled=true;
-  privateSetPanelState("Enviando puja por "+info.name+"…");
+  privateSetPanelState("Preparando puja para confirmar…");
   try{
-    await privateApiWrite(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/market/"+encodeURIComponent(marketId)+"/bid",{money:amount},"POST");
-    privateSetPanelState("El servidor ha aceptado la solicitud de puja. Actualizando mercado y saldo…","good");
+    const writeResult=await privateApiWrite(
+      PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/market/"+encodeURIComponent(marketId)+"/bid",
+      {money:amount},"POST",
+      "PUJA — "+info.name+"\n\nImporte: "+privateMoney(amount)+"\nLiga: "+privateLeagueName(selectedPrivateLeague)+"\nSaldo actual: "+(selectedPrivateBalance===null?"no disponible":privateMoney(selectedPrivateBalance))+warning+"\n\n¿Confirmas el envío de esta puja?"
+    );
+    if(writeResult?.cancelled){privateSetPanelState("Puja cancelada. No se ha enviado a LALIGA.");return}
+    privateSetPanelState("LALIGA ha aceptado la petición de puja. Actualizando mercado y saldo…","good");
     await switchPrivateLeagueTab("market");
     await loadPrivateMarketBalance(true);
   }catch(error){
@@ -2081,12 +2099,16 @@ async function payPrivateBuyout(entry,button){
   if(ownTeamId&&selectedPrivateRosterTeam&&String(ownTeamId)===String(selectedPrivateRosterTeam.id)){
     alert("No puedes pagar la cláusula de un jugador de tu propio equipo.");return;
   }
-  if(!confirm("Clausulazo por "+info.name+"\n\nEquipo actual: "+(selectedPrivateRosterTeam?.name||"Rival")+"\nCláusula: "+privateMoney(amount)+"\nSaldo actual: "+(selectedPrivateBalance===null?"no disponible":privateMoney(selectedPrivateBalance))+"\n\nEsta operación compra al jugador pagando la cláusula completa. ¿Confirmas el envío?"))return;
   if(button)button.disabled=true;
-  privateSetPanelState("Enviando clausulazo por "+info.name+"…");
+  privateSetPanelState("Preparando clausulazo para confirmar…");
   try{
-    await privateApiWrite(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/buyout/"+encodeURIComponent(info.id)+"/pay",{buyoutClauseToPay:amount},"POST");
-    privateSetPanelState("El servidor ha aceptado la solicitud de clausulazo. Actualizando plantilla…","good");
+    const writeResult=await privateApiWrite(
+      PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/buyout/"+encodeURIComponent(info.id)+"/pay",
+      {buyoutClauseToPay:amount},"POST",
+      "CLAUSULAZO — "+info.name+"\n\nImporte: "+privateMoney(amount)+"\nEquipo actual: "+(selectedPrivateRosterTeam?.name||"Rival")+"\nSaldo actual: "+(selectedPrivateBalance===null?"no disponible":privateMoney(selectedPrivateBalance))+"\n\nEsta operación compra al jugador pagando la cláusula completa. ¿Confirmas el envío?"
+    );
+    if(writeResult?.cancelled){privateSetPanelState("Clausulazo cancelado. No se ha enviado a LALIGA.");return}
+    privateSetPanelState("LALIGA ha aceptado la petición de clausulazo. Actualizando plantilla…","good");
     const team=selectedPrivateRosterTeam;
     if(team)await loadPrivateRoster(team.id,team.name);
     await loadPrivateMarketBalance(true);
