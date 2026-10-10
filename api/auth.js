@@ -357,6 +357,248 @@ async function requestFantasyRead(path, token) {
   };
 }
 
+
+const PRIVATE_WRITE_RULES = [
+  { method: "POST", test: /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/market\/[A-Za-z0-9_-]+\/bid$/, action: "market_bid" },
+  { method: "POST", test: /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/buyout\/[A-Za-z0-9_-]+\/pay$/, action: "buyout_pay" },
+  { method: "PUT", test: /^\/v1\/competition\/1\/teams\/[A-Za-z0-9_-]+\/lineup$/, action: "lineup_save" }
+];
+const FREE_FORMATIONS = new Set(["5,4,1", "5,3,2", "4,5,1", "4,4,2", "4,3,3", "3,5,2", "3,4,3"]);
+const APPROVAL_TICKET_TTL_MS = 90 * 1000;
+
+function privateWriteRule(method, path) {
+  return PRIVATE_WRITE_RULES.find(function (rule) {
+    return rule.method === method && rule.test.test(path);
+  }) || null;
+}
+
+function normalizeLineupId(value) {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const normalized = String(value);
+  return /^[A-Za-z0-9_-]{1,40}$/.test(normalized) ? normalized : null;
+}
+
+function validatePrivateWrite(method, path, payload) {
+  const rule = privateWriteRule(method, path);
+  if (!rule) throw new Error("Esta operación no está permitida por el proxy privado.");
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Los datos de la operación no tienen un formato válido.");
+  }
+
+  if (rule.action === "market_bid") {
+    if (Object.keys(payload).length !== 1 || !Number.isSafeInteger(payload.money) || payload.money <= 0) {
+      throw new Error("La puja debe contener un importe entero positivo en euros.");
+    }
+    return { rule: rule, payload: { money: payload.money } };
+  }
+
+  if (rule.action === "buyout_pay") {
+    if (Object.keys(payload).length !== 1 || !Number.isSafeInteger(payload.buyoutClauseToPay) || payload.buyoutClauseToPay <= 0) {
+      throw new Error("El pago de cláusula debe contener un importe entero positivo en euros.");
+    }
+    return { rule: rule, payload: { buyoutClauseToPay: payload.buyoutClauseToPay } };
+  }
+
+  const expectedKeys = ["goalkeeper", "defender", "midfield", "striker", "tactical_formation"];
+  if (Object.keys(payload).length !== expectedKeys.length || expectedKeys.some(function (key) { return !Object.prototype.hasOwnProperty.call(payload, key); })) {
+    throw new Error("La alineación debe incluir portero, defensas, centrocampistas, delanteros y formación táctica.");
+  }
+
+  const goalkeeper = normalizeLineupId(payload.goalkeeper);
+  const defender = Array.isArray(payload.defender) ? payload.defender.map(normalizeLineupId) : null;
+  const midfield = Array.isArray(payload.midfield) ? payload.midfield.map(normalizeLineupId) : null;
+  const striker = Array.isArray(payload.striker) ? payload.striker.map(normalizeLineupId) : null;
+  const formation = Array.isArray(payload.tactical_formation)
+    ? payload.tactical_formation.map(function (value) { return typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value; })
+    : null;
+
+  if (!goalkeeper || !defender || !midfield || !striker || !formation || formation.length !== 3 ||
+      formation.some(function (value) { return !Number.isInteger(value) || value < 0 || value > 6; })) {
+    throw new Error("La alineación contiene identificadores o formación no válidos.");
+  }
+  if (defender.some(function (value) { return !value; }) ||
+      midfield.some(function (value) { return !value; }) ||
+      striker.some(function (value) { return !value; })) {
+    throw new Error("Cada jugador seleccionado debe tener un ID de ficha válido.");
+  }
+  if (defender.length !== formation[0] || midfield.length !== formation[1] || striker.length !== formation[2] ||
+      !FREE_FORMATIONS.has(formation.join(","))) {
+    throw new Error("La cantidad de jugadores no coincide con una formación gratuita permitida.");
+  }
+
+  const selected = [goalkeeper].concat(defender, midfield, striker);
+  if (selected.length !== 11 || new Set(selected).size !== selected.length) {
+    throw new Error("El once debe contener 11 fichas distintas, sin repetir jugadores.");
+  }
+
+  return {
+    rule: rule,
+    payload: {
+      goalkeeper: goalkeeper,
+      defender: defender,
+      midfield: midfield,
+      striker: striker,
+      tactical_formation: formation
+    }
+  };
+}
+
+function makeApprovalTicket(token, path, method, payload) {
+  const ticketPayload = {
+    path: path,
+    method: method,
+    hash: crypto.createHash("sha256").update(JSON.stringify(payload)).digest("base64url"),
+    expiresAt: Date.now() + APPROVAL_TICKET_TTL_MS,
+    nonce: randomUrlSafe(18)
+  };
+  const encoded = base64url(Buffer.from(JSON.stringify(ticketPayload), "utf8"));
+  const signature = crypto.createHmac("sha256", token).update(encoded).digest("base64url");
+  return encoded + "." + signature;
+}
+
+function verifyApprovalTicket(ticket, token, path, method, payload) {
+  if (typeof ticket !== "string" || ticket.length > 2048) return false;
+  const pieces = ticket.split(".");
+  if (pieces.length !== 2) return false;
+  const expected = crypto.createHmac("sha256", token).update(pieces[0]).digest("base64url");
+  if (!sameSecret(expected, pieces[1])) return false;
+
+  try {
+    const decoded = JSON.parse(Buffer.from(pieces[0], "base64url").toString("utf8"));
+    if (decoded.path !== path || decoded.method !== method ||
+        !Number.isFinite(decoded.expiresAt) || decoded.expiresAt <= Date.now() ||
+        decoded.expiresAt > Date.now() + APPROVAL_TICKET_TTL_MS + 5000) return false;
+    const hash = crypto.createHash("sha256").update(JSON.stringify(payload)).digest("base64url");
+    return sameSecret(decoded.hash, hash) && typeof decoded.nonce === "string";
+  } catch {
+    return false;
+  }
+}
+
+async function requestFantasyWrite(method, path, payload, token) {
+  const url = new URL(API_BASE + path);
+  url.searchParams.set("x-lang", "es");
+  const response = await fetch(url, {
+    method: method,
+    headers: Object.assign({}, fantasyHeaders(token), { "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+    cache: "no-store",
+    signal: AbortSignal.timeout(15000)
+  });
+  const text = await response.text();
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = { message: text.slice(0, 500) }; }
+  }
+  return { status: response.status, data: data };
+}
+
+async function handlePrivateWrite(req, res, path, body) {
+  const method = body.upstreamMethod;
+  if (typeof path !== "string" || path.length > 400 || path.includes("?") || !path.startsWith("/") ||
+      (body.actionPhase !== "prepare" && body.actionPhase !== "confirm")) {
+    return json(res, 400, { error: "Falta una fase de confirmación válida para la operación." });
+  }
+
+  let validated;
+  try {
+    validated = validatePrivateWrite(method, path, body.payload);
+  } catch (error) {
+    return json(res, 403, { error: error.message || "Esta operación no está permitida." });
+  }
+
+  const jar = parseCookies(req.headers.cookie);
+  let token = jar[SESSION_COOKIE] || "";
+  let refreshToken = jar[REFRESH_COOKIE] || "";
+  let didRefresh = false;
+  let refreshAge = DEFAULT_REFRESH_COOKIE_AGE;
+
+  if (body.actionPhase === "prepare") {
+    if (!token || !tokenExpiry(token) || tokenExpiry(token) <= Date.now() + 120000) {
+      if (!refreshToken) {
+        res.setHeader("Set-Cookie", clearSessionCookies());
+        return json(res, 401, { error: "La sesión ha caducado. Vuelve a iniciar sesión." });
+      }
+      const renewed = await refreshSession(refreshToken);
+      if (!renewed) {
+        res.setHeader("Set-Cookie", clearSessionCookies());
+        return json(res, 401, { error: "La sesión ha caducado. Vuelve a iniciar sesión." });
+      }
+      token = renewed.token;
+      refreshToken = renewed.refreshToken;
+      refreshAge = renewed.refreshAge;
+      didRefresh = true;
+    }
+
+    if (didRefresh) res.setHeader("Set-Cookie", sessionCookieHeaders(token, refreshToken, refreshAge));
+    const approvalToken = makeApprovalTicket(token, path, method, validated.payload);
+    return json(res, 200, {
+      prepared: true,
+      approvalToken: approvalToken,
+      expiresAt: Date.now() + APPROVAL_TICKET_TTL_MS,
+      operation: validated.rule.action
+    });
+  }
+
+  if (body.confirmed !== true ||
+      !verifyApprovalTicket(body.approvalToken, token, path, method, validated.payload)) {
+    return json(res, 400, {
+      error: "La confirmación ha caducado o no coincide con la operación preparada. Prepara de nuevo y revisa el resumen."
+    });
+  }
+
+  if (!token || !tokenExpiry(token)) {
+    return json(res, 401, { error: "La sesión ha caducado. Vuelve a iniciar sesión." });
+  }
+  if (tokenExpiry(token) <= Date.now() + 15000) {
+    if (!refreshToken) {
+      res.setHeader("Set-Cookie", clearSessionCookies());
+      return json(res, 401, { error: "La sesión ha caducado. Vuelve a iniciar sesión." });
+    }
+    const renewed = await refreshSession(refreshToken);
+    if (!renewed) {
+      res.setHeader("Set-Cookie", clearSessionCookies());
+      return json(res, 401, { error: "La sesión ha caducado. Vuelve a iniciar sesión." });
+    }
+    token = renewed.token;
+    refreshToken = renewed.refreshToken;
+    refreshAge = renewed.refreshAge;
+    didRefresh = true;
+  }
+
+  let result = await requestFantasyWrite(method, path, validated.payload, token);
+  if (result.status === 401 && refreshToken && !didRefresh) {
+    const renewed = await refreshSession(refreshToken);
+    if (renewed) {
+      token = renewed.token;
+      refreshToken = renewed.refreshToken;
+      refreshAge = renewed.refreshAge;
+      didRefresh = true;
+      result = await requestFantasyWrite(method, path, validated.payload, token);
+    }
+  }
+
+  if (didRefresh) res.setHeader("Set-Cookie", sessionCookieHeaders(token, refreshToken, refreshAge));
+  if (result.status === 401) {
+    res.setHeader("Set-Cookie", clearSessionCookies());
+    return json(res, 401, { error: "LALIGA ha rechazado la sesión. Vuelve a iniciar sesión." });
+  }
+  if (result.status < 200 || result.status >= 300) {
+    const upstream = result.data && typeof result.data === "object" ? result.data : {};
+    return json(res, result.status, {
+      error: upstream.message || upstream.error || "LALIGA ha rechazado la operación.",
+      errorCode: upstream.errorCode || null
+    });
+  }
+
+  privateApiCacheNoop();
+  return json(res, 200, { success: true, result: result.data });
+}
+
+function privateApiCacheNoop() {
+  // The browser invalidates its in-memory private cache after a confirmed write.
+}
+
 async function handlePrivateRead(req, res) {
   const pathValue = req.query && req.query.path;
   const path = Array.isArray(pathValue) ? pathValue[0] : pathValue;
@@ -481,6 +723,11 @@ export default async function handler(req, res) {
       return json(res, 413, { error: "La solicitud es demasiado grande." });
     }
     const body = typeof req.body === "object" && req.body !== null ? req.body : JSON.parse(raw || "{}");
+    const pathValue = req.query && req.query.path;
+    const requestedPath = Array.isArray(pathValue) ? pathValue[0] : pathValue;
+    if (requestedPath !== undefined) {
+      return await handlePrivateWrite(req, res, requestedPath, body);
+    }
     if (body.oauth !== "google") {
       return json(res, 400, { error: "Usa el inicio de sesión oficial de LALIGA con Google." });
     }
