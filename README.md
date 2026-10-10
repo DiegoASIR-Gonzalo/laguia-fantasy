@@ -38,7 +38,7 @@ Las demás rutas de juego no aceptan escrituras a través del proxy. Las accione
 
 ## Mi Alineación (antes «Crear Plantilla»)
 
-Esta sección ya no guarda un once de prueba en el navegador. Permite elegir una liga propia, identificar el equipo del usuario, cargar sus fichas y la alineación actual, seleccionar una formación gratuita y editar los 11 puestos. El guardado valida que los jugadores pertenezcan a la plantilla, que no se repitan y que sus posiciones coincidan. Antes del `PUT`, muestra un resumen completo y solicita confirmación explícita.
+Esta sección ya no guarda un once de prueba en el navegador. Permite elegir una liga propia, identificar el equipo del usuario, cargar sus fichas y la alineación actual, seleccionar una de las formaciones gratuitas documentadas o una formación premium conocida y editar los 11 puestos. Si tu cuenta no tiene acceso a una formación premium, LALIGA puede rechazar el guardado. El guardado valida que los jugadores pertenezcan a la plantilla, que no se repitan y que sus posiciones coincidan. Antes del `PUT`, muestra un resumen completo y solicita confirmación explícita.
 
 Las rutas de lectura del usuario, ligas, clasificación y plantillas figuran como comprobadas con cuenta real en el documento técnico de referencia. Las rutas de mercado, actividad y alineación deben seguir verificándose contra el servicio real; este repositorio no puede garantizar que una ruta no documentada públicamente permanezca estable.
 
