@@ -1485,7 +1485,6 @@ async function loadLineupEditorTeam(){
     ]);
     const roster=privateRows(rosterData,"roster").filter(player=>lineupEditorPlayerId(player));
     if(!roster.length)throw Error("La API no devolvió fichas de jugadores reconocibles para tu equipo.");
-    selectedPrivateOwnTeamId=String(teamId);
     lineupEditorContext={league:league,leagueId:String(leagueId),teamId:String(teamId),roster:roster,currentLineup:lineupData};
     lineupEditorApplyCurrentLineup(lineupData);
     $("lineupEditorTeamName").textContent=privateText(privateField(league,["teamName","managerName","name"]),"Tu equipo");
@@ -1994,7 +1993,7 @@ function privateOwnTeamId(league=selectedPrivateLeague){
     const id=privateDirectField(team,["id","teamId","team_id","managerTeamId"]);
     if(id!==null)return String(id);
   }
-  const direct=privateDirectField(league,["myTeamId","userTeamId","managerTeamId","ownTeamId"]);
+  const direct=privateDirectField(league,["myTeamId","userTeamId","managerTeamId","ownTeamId","teamId","team_id"]);
   return direct===null?null:String(direct);
 }
 function privateExtractMoney(data){
