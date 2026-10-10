@@ -1358,12 +1358,13 @@ function lineupEditorId(value){
   }
   return "";
 }
+function lineupEditorNormPosition(value){return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
 function lineupEditorPosition(player){
   const master=player?.playerMaster||player?.player||player;
   const raw=privateDirectField(player,["positionId","position_id","position","role","positionName"]) ??
     privateDirectField(master,["positionId","position_id","position","role","positionName"]);
   if(raw===null)return null;
-  const value=normPosition(raw);
+  const value=lineupEditorNormPosition(raw);
   if(value==="1"||value==="gk"||value.includes("goalkeeper")||value.includes("portero")||value.includes("guardameta"))return "goalkeeper";
   if(value==="2"||value.includes("defend")||value==="def"||value==="df"||value.includes("defensa"))return "defender";
   if(value==="3"||value.includes("midfield")||value.includes("centrocamp")||value==="mid"||value==="mf"||value==="medio")return "midfield";
