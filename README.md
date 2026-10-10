@@ -1,6 +1,6 @@
-# LALIGA Fantasy — Explorador público y panel de cuenta
+# LALIGA Fantasy — Explorador y panel privado
 
-Aplicación estática desplegada en Vercel con funciones Node.js. Los tokens de LALIGA se conservan en cookies `HttpOnly`; no se entregan al JavaScript del navegador.
+Aplicación web estática desplegada en Vercel con funciones Node.js. La aplicación conserva los tokens de LALIGA en cookies `HttpOnly`; no los entrega al JavaScript del navegador.
 
 ## Despliegue
 
@@ -10,46 +10,44 @@ Aplicación estática desplegada en Vercel con funciones Node.js. Los tokens de 
 
 ## Explorador público
 
-El buscador público consulta endpoints permitidos a través de `/api/laliga`:
+El buscador público usa una lista permitida de endpoints de lectura a través de `/api/laliga`:
 
 `Navegador → /api/laliga → fantasy-api.llt-services.com/api`
 
-Esta ruta es de solo lectura y limita los endpoints públicos permitidos.
-
 ## Inicio de sesión con Google
 
-El botón usa Authorization Code + PKCE mediante LALIGA B2C. No pide ni guarda la contraseña de Google o de LALIGA.
+La autenticación usa Authorization Code + PKCE mediante LALIGA B2C; no pide ni guarda la contraseña de Google o de LALIGA.
 
-1. Pulsa **Continuar con Google** y completa el acceso oficial.
-2. En la pestaña de autenticación abre **F12 → Red/Network → Todas**. Localiza la redirección `authredirect://com.lfp.laligafantasy`.
+1. Pulsa **Continuar con Google** y completa el acceso en la página oficial.
+2. En la pestaña de autenticación abre **F12 → Red/Network → Todas** y localiza la redirección `authredirect://com.lfp.laligafantasy`.
 3. Copia la cabecera completa `Location` (o la URL completa de la solicitud al esquema personalizado), pégala en el formulario y pulsa **Completar login**.
-4. El servidor valida `state`, canjea el código con el `code_verifier` original y comprueba la cuenta con `GET /v4/user/me`.
+4. El servidor valida `state`, canjea el código con el `code_verifier` original y verifica la sesión mediante `GET /v4/user/me`.
 
-La URL de redirección contiene un código de un solo uso. No la publiques ni la envíes en chats. Si el código caduca, vuelve a empezar el login.
+La URL de redirección contiene un código de un solo uso. No la publiques ni la envíes en chats. Si caduca, vuelve a iniciar el proceso.
 
-## Panel privado: Mis Ligas
+## Mis Ligas
 
-Una vez iniciada la sesión, la sección **Mis Ligas** permite:
+La sección **Mis Ligas** permite consultar las ligas de la cuenta, sus clasificaciones y las plantillas de los managers. Incluye vista de mercado, saldo y movimientos.
 
-- Consultar las ligas de la cuenta.
-- Abrir la clasificación y acceder a la plantilla de cada equipo/manager.
-- Ver la alineación disponible del equipo desde la pantalla de plantilla.
-- Consultar el mercado de una liga en modo solo lectura.
-- Consultar la actividad de liga desde la ruta paginada inicial.
+El mercado dispone de puja y pago de cláusula. Antes de cada escritura el servidor valida la ruta y el cuerpo, prepara un ticket de aprobación de corta duración y requiere una segunda petición confirmada tras mostrar el resumen de la operación. Las rutas de escritura están limitadas a:
+- `POST /v1/competition/1/league/{leagueId}/market/{marketId}/bid`
+- `POST /v1/competition/1/league/{leagueId}/buyout/{playerTeamId}/pay`
+- `PUT /v1/competition/1/teams/{teamId}/lineup`
 
-Las rutas privadas se procesan a través de `/api/auth?path=...`, con una lista permitida explícita y peticiones exclusivamente GET. El token no se pasa al navegador ni al endpoint público `/api/laliga`. El servidor intenta renovar tokens cuando se aproximan a su caducidad, pero la renovación requiere pruebas periódicas contra LALIGA.
+Las demás rutas de juego no aceptan escrituras a través del proxy. Las acciones con dinero son definitivas: revisa el jugador, liga, importe y saldo antes de confirmar. Si una respuesta no confirma éxito, actualiza mercado, saldo o plantilla antes de volver a intentarlo; no repitas la operación a ciegas.
 
-### Estado de verificación
+## Mi Alineación (antes «Crear Plantilla»)
 
-El documento técnico de referencia reporta como comprobadas con cuenta real las lecturas de usuario, ligas, clasificación y plantilla. Las rutas de mercado, actividad y alineación proceden del código de referencia de la comunidad y pueden variar o no estar disponibles para todas las cuentas. La interfaz muestra errores si LALIGA rechaza alguna de ellas.
+Esta sección ya no guarda un once de prueba en el navegador. Permite elegir una liga propia, identificar el equipo del usuario, cargar sus fichas y la alineación actual, seleccionar una formación gratuita y editar los 11 puestos. El guardado valida que los jugadores pertenezcan a la plantilla, que no se repitan y que sus posiciones coincidan. Antes del `PUT`, muestra un resumen completo y solicita confirmación explícita.
 
-No se habilitan pujas, compras, ventas, ofertas, cláusulas, blindajes ni cambios de alineación. Esas operaciones modifican el estado de una liga y deben verificarse por separado y requerir confirmación explícita por acción.
+Las rutas de lectura del usuario, ligas, clasificación y plantillas figuran como comprobadas con cuenta real en el documento técnico de referencia. Las rutas de mercado, actividad y alineación deben seguir verificándose contra el servicio real; este repositorio no puede garantizar que una ruta no documentada públicamente permanezca estable.
 
-## Seguridad y arquitectura
+## Seguridad y límites
 
-- Los tokens de sesión y los refresh tokens se guardan en cookies `Secure`, `HttpOnly` y con `SameSite` restrictivo, con ámbito `/api/auth`.
-- El proxy privado permite solo rutas de lectura concretas de la competición 1.
-- La interfaz no guarda la respuesta privada en `localStorage`; los datos privados se mantienen en memoria y se borran al cerrar sesión o cuando la sesión deja de ser válida.
-- Si LALIGA responde 401, vuelve a iniciar sesión. No reutilices códigos o tokens de otra sesión.
+- Las cookies de sesión y renovación son `Secure`, `HttpOnly`, con `SameSite` restrictivo y ámbito `/api/auth`.
+- El proxy privado valida una lista permitida independiente para lectura y escritura.
+- Las escrituras exigen preparar y confirmar exactamente la misma ruta, método y contenido; el ticket caduca en 90 segundos.
+- No se activan automáticamente compras, pujas ni cambios de alineación. Cada una necesita una confirmación concreta del usuario.
+- La renovación de tokens necesita pruebas periódicas contra LALIGA; si la API responde 401, vuelve a iniciar sesión.
 
 Aplicación: https://fantasy-xi-eight.vercel.app/
