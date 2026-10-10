@@ -1741,7 +1741,7 @@ function lineupEditorOpenAssignBench(id){
     const labelPlayer=currentPlayer||player;
     return '<button type="button" class="private-lineup-picker-choice" data-lineup-assign-group="'+esc(group)+'" data-lineup-assign-index="'+index+'">'+
       lineupEditorAvatarHtml(labelPlayer,"picker")+
-      '<span class="private-lineup-picker-person"><span class="private-lineup-picker-name">'+esc(lineupEditorGroupName(group))+" "+(index+1)+'</span><span class="private-lineup-picker-meta">'+esc(currentPlayer?("Sustituye a "+lineupEditorPlayerName(currentPlayer):"Puesto vacío")+'</span></span>'+
+      '<span class="private-lineup-picker-person"><span class="private-lineup-picker-name">'+esc(lineupEditorGroupName(group))+" "+(index+1)+'</span><span class="private-lineup-picker-meta">'+esc(currentPlayer?("Sustituye a "+lineupEditorPlayerName(currentPlayer)):"Puesto vacío")+'</span></span>'+
       '<span class="private-lineup-picker-action">Colocar</span></button>';
   }).join("");
   $("modalTitle").textContent="Colocar suplente";
