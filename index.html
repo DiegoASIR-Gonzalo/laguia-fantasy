@@ -2130,8 +2130,9 @@ async function placePrivateBid(item,index,button){
 }
 async function payPrivateBuyout(entry,button){
   const leagueId=privateLeagueId(selectedPrivateLeague),info=privatePlayerInfo(entry);
+  const playerTeamId=privateDirectField(entry,["playerTeamId","player_team_id"])??privateDirectField(entry?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(entry?.playerTeamData,["playerTeamId","player_team_id","id"]);
   const amount=privateIntegerMoney(info.clause);
-  if(!leagueId||!info.id||!amount){alert("No hay ID público o cláusula válida disponible para este jugador.");return}
+  if(!leagueId||playerTeamId===null||!amount){alert("No hay ID de ficha (playerTeamId) o cláusula válida disponible. No se enviará ninguna operación.");return}
   const ownTeamId=selectedPrivateOwnTeamId||privateOwnTeamId(selectedPrivateLeague);
   if(ownTeamId&&selectedPrivateRosterTeam&&String(ownTeamId)===String(selectedPrivateRosterTeam.id)){
     alert("No puedes pagar la cláusula de un jugador de tu propio equipo.");return;
@@ -2140,7 +2141,7 @@ async function payPrivateBuyout(entry,button){
   privateSetPanelState("Preparando clausulazo para confirmar…");
   try{
     const writeResult=await privateApiWrite(
-      PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/buyout/"+encodeURIComponent(info.id)+"/pay",
+      PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/buyout/"+encodeURIComponent(playerTeamId)+"/pay",
       {buyoutClauseToPay:amount},"POST",
       "CLAUSULAZO — "+info.name+"\n\nImporte: "+privateMoney(amount)+"\nEquipo actual: "+(selectedPrivateRosterTeam?.name||"Rival")+"\nSaldo actual: "+(selectedPrivateBalance===null?"no disponible":privateMoney(selectedPrivateBalance))+"\n\nEsta operación compra al jugador pagando la cláusula completa. ¿Confirmas el envío?"
     );
@@ -2334,7 +2335,8 @@ async function loadPrivateRoster(teamId,teamName){
       const avatar=info.image?'<img class="private-player-avatar" src="'+esc(info.image)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<span class="private-player-avatar-fallback" aria-hidden="true"></span>';
       const price=info.price===null?'Precio n/d':privateMoney(info.price);
       const clause=info.clause===null?'Cláusula n/d':'Cláusula '+privateMoney(info.clause);
-      const canBuyout=!isOwnRoster&&!!info.id&&privateIntegerMoney(info.clause)!==null;
+      const buyoutPlayerTeamId=privateDirectField(player,["playerTeamId","player_team_id"])??privateDirectField(player?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(player?.playerTeamData,["playerTeamId","player_team_id","id"]);
+      const canBuyout=!isOwnRoster&&buyoutPlayerTeamId!==null&&privateIntegerMoney(info.clause)!==null;
       const buyoutButton=canBuyout?'<button type="button" class="private-action-button" data-private-buyout-index="'+index+'">Clausulazo</button>':'';
       return '<div class="private-roster-entry"><button type="button" class="private-player-row private-player-open" data-private-roster-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta||"Ver ficha y estadísticas")+'</span></span></span><span class="private-player-side"><strong>'+esc(price)+'</strong><small>'+esc(clause)+'</small></span></button>'+buyoutButton+'</div>';
     }).join("");
