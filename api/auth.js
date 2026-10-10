@@ -363,7 +363,7 @@ const PRIVATE_WRITE_RULES = [
   { method: "POST", test: /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/buyout\/[A-Za-z0-9_-]+\/pay$/, action: "buyout_pay" },
   { method: "PUT", test: /^\/v1\/competition\/1\/teams\/[A-Za-z0-9_-]+\/lineup$/, action: "lineup_save" }
 ];
-const FREE_FORMATIONS = new Set(["5,4,1", "5,3,2", "4,5,1", "4,4,2", "4,3,3", "3,5,2", "3,4,3"]);
+const ALLOWED_FORMATIONS = new Set(["5,4,1", "5,3,2", "4,5,1", "4,4,2", "4,3,3", "3,5,2", "3,4,3", "5,2,3", "4,6,0", "4,2,4", "3,6,1", "3,3,4"]);
 const APPROVAL_TICKET_TTL_MS = 90 * 1000;
 
 function privateWriteRule(method, path) {
@@ -422,7 +422,7 @@ function validatePrivateWrite(method, path, payload) {
     throw new Error("Cada jugador seleccionado debe tener un ID de ficha válido.");
   }
   if (defender.length !== formation[0] || midfield.length !== formation[1] || striker.length !== formation[2] ||
-      !FREE_FORMATIONS.has(formation.join(","))) {
+      !ALLOWED_FORMATIONS.has(formation.join(","))) {
     throw new Error("La cantidad de jugadores no coincide con una formación gratuita permitida.");
   }
 
