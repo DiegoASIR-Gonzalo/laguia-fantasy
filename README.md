@@ -36,6 +36,12 @@ El mercado dispone de puja y pago de cláusula. Antes de cada escritura el servi
 
 Las demás rutas de juego no aceptan escrituras a través del proxy. Las acciones con dinero son definitivas: revisa el jugador, liga, importe y saldo antes de confirmar. Si una respuesta no confirma éxito, actualiza mercado, saldo o plantilla antes de volver a intentarlo; no repitas la operación a ciegas.
 
+## Recompensa diaria
+
+Al abrir el detalle de una liga, la interfaz consulta el endpoint de lectura `GET /v1/competition/1/league/{leagueId}/team/{teamId}/check-daily-reward` para reflejar si las monedas del día ya se recogieron. Si ya están recogidas, el botón queda desactivado; si no, aparece **Recoger Monedas**.
+
+La reclamación de LALIGA usa una ruta distinta: `POST /v1/competition/1/league/{leagueId}/team/daily-reward`, con `teamId`, `rewardedAdType` y `rewardedAd`. La API valida una prueba legítima del anuncio recompensado. Esta web no integra actualmente el SDK/proveedor de anuncios ni genera esa prueba, por lo que el botón abre LALIGA Fantasy para completar el anuncio y reclamar allí. Al volver, el mismo botón permite comprobar si la recompensa quedó registrada. No se envían valores falsificados ni se muestra la recompensa como recibida hasta que la API confirme el estado.
+
 ## Mi Alineación (antes «Crear Plantilla»)
 
 Esta sección ya no guarda un once de prueba en el navegador. Permite elegir una liga propia, identificar el equipo del usuario, cargar sus fichas y la alineación actual, seleccionar una de las formaciones gratuitas documentadas o una formación premium conocida y editar los 11 puestos. Si tu cuenta no tiene acceso a una formación premium, LALIGA puede rechazar el guardado. El guardado valida que los jugadores pertenezcan a la plantilla, que no se repitan y que sus posiciones coincidan. Antes del `PUT`, muestra un resumen completo y solicita confirmación explícita.
