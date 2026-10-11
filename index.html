@@ -443,6 +443,15 @@ main.wrap{padding-bottom:96px!important}
 .private-player-value,.private-market-price{font-size:11px;font-weight:800;text-align:right;white-space:nowrap}
 .private-empty{padding:15px;border:1px dashed #333;text-align:center;font-size:11px;color:#8a8a8a;line-height:1.5}
 .private-warning{font-size:10px;line-height:1.5;color:#cdbb83;padding:8px 10px;border:1px solid #4a4025;background:#151208;margin-bottom:10px}
+.private-daily-reward{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 13px;padding:11px 12px;border:1px solid #6b5915;background:linear-gradient(110deg,#211b06,#151307)}
+.private-daily-reward-copy{display:grid;gap:4px;min-width:0}
+.private-daily-reward-copy strong{font-size:12px;font-weight:900;color:#ffdc44}
+.private-daily-reward-copy span{font-size:10px;line-height:1.45;color:#b5a96e}
+.private-daily-reward-button{flex:0 0 auto;background:#ffd32a!important;border-color:#ffd32a!important;color:#241d00!important;font-weight:950!important;font-size:11px!important;padding:10px 13px!important;white-space:nowrap;box-shadow:0 2px 0 #9f7e00}
+.private-daily-reward-button:hover:not(:disabled){background:#ffe66c!important;border-color:#ffe66c!important}
+.private-daily-reward-button:disabled{opacity:.58;cursor:not-allowed;box-shadow:none}
+@media(max-width:520px){.private-daily-reward{align-items:flex-start;flex-direction:column}.private-daily-reward-button{width:100%}}
+
 
 .private-player-open{appearance:none;-webkit-appearance:none;width:100%;min-width:0;color:#f2f2f2;text-align:left;cursor:pointer;border:0;border-bottom:1px solid #202020;background:#090909;padding:9px 8px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;font:inherit}
 .private-player-open:hover{background:#151515;border-color:#444}
@@ -687,6 +696,13 @@ main.wrap{padding-bottom:96px!important}
             <h2 id="myLeagueName">Liga</h2>
             <div id="myLeagueMeta" class="private-muted"></div>
           </div>
+        </div>
+        <div id="privateDailyRewardBar" class="private-daily-reward">
+          <div class="private-daily-reward-copy">
+            <strong>Recompensa diaria</strong>
+            <span id="privateDailyRewardStatus" aria-live="polite">Comprobando si está disponible…</span>
+          </div>
+          <button type="button" id="privateDailyRewardButton" class="private-daily-reward-button" disabled>Comprobando…</button>
         </div>
         <div id="myLeagueTabs" class="private-tabs">
           <button type="button" data-private-tab="standing" class="active">Clasificación</button>
@@ -2188,6 +2204,111 @@ function privateOwnTeamId(league=selectedPrivateLeague){
   const direct=privateDirectField(league,["myTeamId","userTeamId","managerTeamId","ownTeamId","teamId","team_id"]);
   return direct===null?null:String(direct);
 }
+let selectedPrivateDailyRewardState=null;
+
+function privateFindDailyRewardRedeemed(node,depth=0){
+  if(!node||typeof node!=="object"||depth>7)return {found:false,value:null};
+  if(Object.prototype.hasOwnProperty.call(node,"dailyRewardsRedeemed")){
+    return {found:true,value:node.dailyRewardsRedeemed};
+  }
+  if(Array.isArray(node)){
+    for(const item of node){const found=privateFindDailyRewardRedeemed(item,depth+1);if(found.found)return found;}
+    return {found:false,value:null};
+  }
+  for(const value of Object.values(node)){
+    if(value&&typeof value==="object"){
+      const found=privateFindDailyRewardRedeemed(value,depth+1);
+      if(found.found)return found;
+    }
+  }
+  return {found:false,value:null};
+}
+function privateDailyRewardIsRedeemed(value){
+  if(value===true||value===1)return true;
+  if(value===false||value===0||value===null||value===undefined)return false;
+  if(typeof value==="string"){
+    const normalized=value.trim().toLowerCase();
+    if(["true","yes","si","sí","1","claimed","redeemed"].includes(normalized))return true;
+    if(["false","no","0",""].includes(normalized))return false;
+    const numeric=Number(normalized);
+    if(Number.isFinite(numeric))return numeric>0;
+  }
+  return false;
+}
+function privateRenderDailyReward(state){
+  const button=$("privateDailyRewardButton"),status=$("privateDailyRewardStatus");
+  if(!button||!status)return;
+  selectedPrivateDailyRewardState=state||null;
+  if(!state){
+    button.disabled=true;
+    button.textContent="No disponible";
+    status.textContent="No se pudo comprobar el estado de la recompensa.";
+    return;
+  }
+  if(state.redeemed){
+    button.disabled=true;
+    button.textContent="Recogidas hoy ✓";
+    status.textContent="La recompensa diaria de esta liga ya está recogida.";
+    return;
+  }
+  if(state.officialOpened){
+    button.disabled=false;
+    button.textContent="Comprobar monedas";
+    status.textContent="Tras reclamar en LALIGA Fantasy, pulsa aquí para verificar el saldo diario.";
+    return;
+  }
+  button.disabled=false;
+  button.textContent="Recoger Monedas";
+  status.textContent="Comprueba la recompensa disponible en esta liga.";
+}
+async function refreshPrivateDailyRewardStatus(){
+  const button=$("privateDailyRewardButton"),status=$("privateDailyRewardStatus");
+  const league=selectedPrivateLeague;
+  const leagueId=privateLeagueId(league);
+  if(!button||!status||!leagueId)return;
+  const oldState=selectedPrivateDailyRewardState;
+  button.disabled=true;
+  button.textContent="Comprobando…";
+  status.textContent="Consultando el estado diario de esta liga…";
+  try{
+    const authResponse=await fetch("/api/auth",{headers:{Accept:"application/json"},credentials:"same-origin",cache:"no-store"});
+    const auth=await authResponse.json().catch(()=>({authenticated:false}));
+    privateAuthState=auth;setAuthUi(auth);
+    if(!auth.authenticated)throw Error("Inicia sesión con Google para comprobar la recompensa.");
+    let teamId=privateOwnTeamId(league);
+    if(!teamId)teamId=await lineupEditorResolveOwnTeam(league);
+    if(!teamId)throw Error("No se ha podido identificar tu equipo en esta liga.");
+    selectedPrivateOwnTeamId=String(teamId);
+    const path=PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/team/"+encodeURIComponent(teamId)+"/check-daily-reward";
+    const response=await privateApi(path,true);
+    const parsed=privateFindDailyRewardRedeemed(response);
+    if(!parsed.found)throw Error("La respuesta no indica si la recompensa ya se ha recogido.");
+    privateRenderDailyReward({
+      leagueId:String(leagueId),
+      teamId:String(teamId),
+      redeemed:privateDailyRewardIsRedeemed(parsed.value),
+      officialOpened:oldState?.leagueId===String(leagueId)&&oldState?.officialOpened===true
+    });
+  }catch(error){
+    privateRenderDailyReward(null);
+    status.textContent=(error?.message||"No se pudo comprobar la recompensa.")+" Puedes reintentarlo más tarde.";
+  }
+}
+function handlePrivateDailyRewardClick(){
+  const state=selectedPrivateDailyRewardState;
+  if(!selectedPrivateLeague||!state)return;
+  if(state.redeemed)return;
+  if(state.officialOpened){
+    refreshPrivateDailyRewardStatus();
+    return;
+  }
+  // LALIGA validates a real rewarded-ad proof; this page has no rewarded-ad SDK.
+  window.open("https://fantasy.laliga.com/","_blank","noopener,noreferrer");
+  privateRenderDailyReward(Object.assign({},state,{officialOpened:true}));
+  const status=$("privateDailyRewardStatus");
+  if(status)status.textContent="Para recibir las monedas, completa el anuncio recompensado en LALIGA Fantasy. Luego vuelve y pulsa «Comprobar monedas». Esta web no genera ni falsifica la prueba del anuncio.";
+}
+
 function privateExtractMoney(data){
   const parse=value=>{
     if(typeof value==="number"&&Number.isFinite(value))return value;
@@ -2415,7 +2536,9 @@ async function openPrivateLeague(league){
   $("myLeagueMeta").textContent="ID de liga: "+(id||"no disponible");
   $("myLeagueRoster").classList.add("hidden");
   $("myLeagueRoster").replaceChildren();
+  privateRenderDailyReward({leagueId:String(id||""),redeemed:false,officialOpened:false,loading:true});
   await switchPrivateLeagueTab("standing");
+  await refreshPrivateDailyRewardStatus();
 }
 function closePrivateLeague(){
   selectedPrivateLeague=null;
@@ -2642,6 +2765,7 @@ function renderPrivateActivity(rows){
   }).join("");
 }
 $("myLeaguesReload").onclick=()=>loadMyLeagues(true);
+$("privateDailyRewardButton")?.addEventListener("click",handlePrivateDailyRewardClick);
 $("myMarketRefreshBalance")?.addEventListener("click",()=>loadPrivateMarketBalance(true));
 $("myLeaguesLoginButton").onclick=()=>showAuth();
 $("backMyLeagues").onclick=closePrivateLeague;
