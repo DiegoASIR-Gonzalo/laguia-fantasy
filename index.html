@@ -2245,6 +2245,12 @@ function privateRenderDailyReward(state){
     status.textContent="No se pudo comprobar el estado de la recompensa.";
     return;
   }
+  if(state.loading){
+    button.disabled=true;
+    button.textContent="Comprobando…";
+    status.textContent="Consultando si puedes recoger las monedas de hoy.";
+    return;
+  }
   if(state.redeemed){
     button.disabled=true;
     button.textContent="Recogidas hoy ✓";
