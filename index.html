@@ -1573,7 +1573,7 @@ function lineupEditorReadFormation(raw){
   if(source&&typeof source==="object"&&!Array.isArray(source))source=source.tacticalFormation??source.tactical_formation??source.value??null;
   let values=[];
   if(Array.isArray(source))values=source.map(Number);
-  else if(typeof source==="string")values=source.split(/[-,;/\\s]+/).map(Number);
+  else if(typeof source==="string")values=source.split(/[-,;/\s]+/).map(Number);
   if(values.length===3&&values.every(Number.isInteger)){
     const formatted=values.join("-");
     if(LINEUP_EDITOR_FORMATIONS.includes(formatted))return formatted;
