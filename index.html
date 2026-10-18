@@ -543,6 +543,13 @@ main.wrap{padding-bottom:96px!important}
 .private-lineup-bench-name{font-size:10px;line-height:1.25;font-weight:850;white-space:normal;overflow-wrap:anywhere}
 .private-lineup-bench-club{font-size:8px;color:#687382}
 .private-lineup-bench-action{align-self:flex-end;font-size:8px;color:#264f76;font-weight:900;text-transform:uppercase;margin-top:3px}
+.private-lineup-bench-card{cursor:grab;touch-action:pan-x pan-y;transition:transform .16s ease,background .16s ease,box-shadow .16s ease}
+.private-lineup-bench-card:active{cursor:grabbing}
+.private-lineup-bench-card.is-dragging{opacity:.42;transform:scale(.96);box-shadow:0 0 0 2px #f2c300 inset}
+.private-lineup-slot.is-drop-target{transform:translateY(-4px) scale(1.04);outline:2px solid #f2c300;outline-offset:2px;box-shadow:0 0 0 5px rgba(242,195,0,.15),0 12px 28px rgba(0,0,0,.4)}
+.private-lineup-shell.is-dragging-player .private-lineup-slot{transition:transform .16s ease,outline .16s ease,box-shadow .16s ease}
+#lineupEditorSummary.is-drop-notice{border-color:#d0ad2e;color:#f6df7c}
+.lineup-drag-help{font-size:10px;color:#6f7d8e;line-height:1.45;margin:7px 0 0}
 .private-lineup-summary{margin-top:10px;padding:10px 12px;border:1px solid #2b3947;background:#101b29;font-size:10px;color:#aebdca;line-height:1.55}
 .private-lineup-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
 .private-lineup-footnote{font-size:9px;line-height:1.5;color:#666;margin:10px 0 0}
@@ -801,6 +808,7 @@ main.wrap{padding-bottom:96px!important}
         <div class="private-lineup-bench">
           <div class="private-lineup-bench-head"><span>Suplentes / resto de plantilla</span><span id="lineupBenchCount" class="private-lineup-bench-count"></span></div>
           <div id="lineupBenchFields" class="private-lineup-bench-list"></div>
+          <p class="lineup-drag-help">Arrastra un jugador sobre un puesto del campo para sustituirlo, o pulsa su tarjeta para elegir el cambio. En móvil, pulsa para seleccionar.</p>
         </div>
         <div id="lineupEditorSummary" class="private-lineup-summary" aria-live="polite"></div>
         <div class="private-lineup-actions">
@@ -1427,6 +1435,7 @@ const LINEUP_EDITOR_FORMATIONS=["5-4-1","5-3-2","4-5-1","4-4-2","4-3-3","3-5-2",
 let lineupEditorLeagues=new Map();
 let lineupEditorContext=null;
 let lineupEditorSelections={goalkeeper:"",defender:[],midfield:[],striker:[]};
+let lineupEditorSuppressBenchClickUntil=0;
 
 function lineupEditorId(value){
   if(value===null||value===undefined||value==="")return "";
@@ -1658,14 +1667,52 @@ function lineupEditorRenderSlotRow(group,count,values){
     const label=lineupEditorPlayerName(player||{});
     const actualName=player?label:(id?"Ficha actual":"");
     const empty=!id;
-    return '<button type="button" class="private-lineup-slot '+(empty?"is-empty":"is-filled")+'" data-lineup-slot-group="'+esc(group)+'" data-slot-index="'+index+'" aria-label="'+esc(lineupEditorGroupName(group)+" "+(index+1)+(player?": "+label:""))+'">'+
+    return '<button type="button" class="private-lineup-slot '+(empty?"is-empty":"is-filled")+'" data-lineup-slot-group="'+esc(group)+'" data-slot-index="'+index+'" aria-label="'+esc(lineupEditorGroupName(group)+" "+(index+1)+(player?": "+label:""))+'" data-drop-group="'+esc(group)+'" data-drop-index="'+index+'">'+
       '<span class="private-slot-position">'+esc(lineupEditorGroupShort(group))+' · '+(index+1)+'</span>'+
       (empty?'<span class="private-slot-add">＋</span><span class="private-slot-hint">Añadir jugador</span>':lineupEditorAvatarHtml(player,"slot")+'<span class="private-slot-name">'+esc(actualName)+'</span><span class="private-slot-hint">Cambiar</span>')+
     '</button>';
   }).join("");
-  host.querySelectorAll("[data-lineup-slot-group]").forEach(button=>button.addEventListener("click",()=>{
-    lineupEditorOpenPicker(button.dataset.lineupSlotGroup,Number(button.dataset.slotIndex));
-  }));
+  host.querySelectorAll("[data-lineup-slot-group]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      if(lineupEditorSuppressBenchClickUntil>Date.now())return;
+      lineupEditorOpenPicker(button.dataset.lineupSlotGroup,Number(button.dataset.slotIndex));
+    });
+    button.addEventListener("dragover",event=>{
+      if(!event.dataTransfer?.types?.includes("application/x-fantasy-player"))return;
+      event.preventDefault();
+      if(event.dataTransfer)event.dataTransfer.dropEffect="move";
+      button.classList.add("is-drop-target");
+    });
+    button.addEventListener("dragenter",event=>{
+      if(event.dataTransfer?.types?.includes("application/x-fantasy-player"))button.classList.add("is-drop-target");
+    });
+    button.addEventListener("dragleave",event=>{
+      if(!button.contains(event.relatedTarget))button.classList.remove("is-drop-target");
+    });
+    button.addEventListener("drop",event=>{
+      event.preventDefault();
+      button.classList.remove("is-drop-target");
+      document.querySelectorAll(".private-lineup-slot.is-drop-target").forEach(slot=>slot.classList.remove("is-drop-target"));
+      const raw=event.dataTransfer?.getData("application/x-fantasy-player");
+      if(!raw)return;
+      try{
+        const payload=JSON.parse(raw);
+        const id=String(payload.id||"");
+        const player=lineupEditorResolveSelectedPlayer(id);
+        const targetGroup=button.dataset.dropGroup;
+        const targetIndex=Number(button.dataset.dropIndex);
+        if(!player||!id)return;
+        if(lineupEditorPosition(player)!==targetGroup){
+          lineupEditorShowDragNotice("Ese jugador no puede ocupar un puesto de "+lineupEditorGroupName(targetGroup).toLowerCase()+".");
+          return;
+        }
+        lineupEditorSetSlot(targetGroup,targetIndex,id);
+        $("lineupEditorSummary").classList.remove("is-drop-notice");
+      }catch(error){
+        lineupEditorShowDragNotice(error?.message||"No se pudo colocar el jugador.");
+      }
+    });
+  });
 }
 function lineupEditorRenderBench(){
   const host=$("lineupBenchFields");
@@ -1682,7 +1729,7 @@ function lineupEditorRenderBench(){
     const group=lineupEditorPosition(player);
     const master=player?.playerMaster||player?.player||player;
     const club=privateField(master,["teamName","clubName","team"]);
-    return '<button type="button" class="private-lineup-bench-card" data-lineup-bench-player="'+esc(id)+'" '+(group?'':'disabled title="No se pudo identificar la posición de esta ficha"')+'>'+
+    return '<button type="button" draggable="true" class="private-lineup-bench-card" data-lineup-bench-player="'+esc(id)+'" '+(group?'':'disabled title="No se pudo identificar la posición de esta ficha"')+'>'+
       '<span class="private-lineup-bench-position">'+esc(group?lineupEditorGroupShort(group):"—")+'</span>'+
       lineupEditorAvatarHtml(player,"bench")+
       '<span class="private-lineup-bench-name">'+esc(lineupEditorPlayerName(player))+'</span>'+
@@ -1690,7 +1737,36 @@ function lineupEditorRenderBench(){
       '<span class="private-lineup-bench-action">'+(group?"Colocar en el once":"Posición n/d")+'</span>'+
       '</button>';
   }).join("");
-  host.querySelectorAll("[data-lineup-bench-player]").forEach(button=>button.addEventListener("click",()=>lineupEditorOpenAssignBench(button.dataset.lineupBenchPlayer)));
+  host.querySelectorAll("[data-lineup-bench-player]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      if(lineupEditorSuppressBenchClickUntil>Date.now())return;
+      lineupEditorOpenAssignBench(button.dataset.lineupBenchPlayer);
+    });
+    button.addEventListener("dragstart",event=>{
+      const id=button.dataset.lineupBenchPlayer;
+      const player=lineupEditorResolveSelectedPlayer(id);
+      if(!player||!lineupEditorPosition(player)){event.preventDefault();return}
+      if(event.dataTransfer){
+        event.dataTransfer.effectAllowed="move";
+        event.dataTransfer.setData("application/x-fantasy-player",JSON.stringify({id:id}));
+        event.dataTransfer.setData("text/plain",lineupEditorPlayerName(player));
+      }
+      button.classList.add("is-dragging");
+      $("lineupEditor")?.classList.add("is-dragging-player");
+    });
+    button.addEventListener("dragend",()=>{
+      button.classList.remove("is-dragging");
+      $("lineupEditor")?.classList.remove("is-dragging-player");
+      document.querySelectorAll(".private-lineup-slot.is-drop-target").forEach(slot=>slot.classList.remove("is-drop-target"));
+      lineupEditorSuppressBenchClickUntil=Date.now()+450;
+    });
+  });
+}
+function lineupEditorShowDragNotice(message){
+  const summary=$("lineupEditorSummary");
+  if(!summary)return;
+  summary.textContent=message;
+  summary.classList.add("is-drop-notice");
 }
 function lineupEditorRenderFields(){
   if(!lineupEditorContext)return;
