@@ -2713,8 +2713,7 @@ async function loadPrivateRoster(teamId,teamName,force=false){
       return '<div class="private-roster-entry"><button type="button" class="private-player-row private-player-open" data-private-roster-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta||"Ver ficha y estadísticas")+'</span></span></span><span class="private-player-side"><strong>'+esc(price)+'</strong><small>'+esc(clause)+'</small></span></button>'+buyoutButton+'</div>';
     }).join("");
     host.innerHTML='<div class="private-roster-head"><h3>'+esc(selectedPrivateRosterTeam.name)+' · Plantilla</h3><button type="button" data-load-lineup="'+esc(teamId)+'">Ver once</button></div>'+
-      (rosterPlayers.length?'<div>'+rows+'</div>':'<div class="private-empty">La respuesta no contiene una lista de jugadores reconocible. Consulta la respuesta de API o vuelve a intentarlo.</div>')+
-      '';
+      (rosterPlayers.length?'<div>'+rows+'</div>':'<div class="private-empty">La respuesta no contiene una lista de jugadores reconocible. Consulta la respuesta de API o vuelve a intentarlo.</div>');
     host.querySelectorAll("[data-private-roster-index]").forEach(button=>button.addEventListener("click",()=>openPrivatePlayer(rosterPlayers[Number(button.dataset.privateRosterIndex)])));
     host.querySelectorAll("[data-private-buyout-index]").forEach(button=>button.addEventListener("click",()=>payPrivateBuyout(rosterPlayers[Number(button.dataset.privateBuyoutIndex)],button)));
     const lineupButton=host.querySelector("[data-load-lineup]");
