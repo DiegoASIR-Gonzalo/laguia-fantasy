@@ -1541,23 +1541,39 @@ async function loadLineupEditorLeagues(force=false){
     select.innerHTML='<option value="">Selecciona una liga…</option>'+
       [...lineupEditorLeagues.entries()].map(([id,league])=>'<option value="'+esc(id)+'">'+esc(privateLeagueName(league))+'</option>').join("");
     if(prior&&lineupEditorLeagues.has(prior))select.value=prior;
+    else if(lineupEditorLeagues.size)select.value=lineupEditorLeagues.keys().next().value;
     if(!lineupEditorLeagues.size)throw Error("La cuenta no tiene ligas disponibles o la respuesta no incluye IDs reconocibles.");
     $("lineupEditor").classList.add("hidden");
     lineupEditorContext=null;
     $("lineupEditorStatus").className="private-state good";
-    $("lineupEditorStatus").textContent="Se han encontrado "+lineupEditorLeagues.size+" liga(s). Selecciona una y carga tu alineación.";
+    $("lineupEditorStatus").textContent="Ligas cargadas. Cargando la alineación de "+privateLeagueName(lineupEditorLeagues.get(String(select.value)))+"…";
+    if(select.value)await loadLineupEditorTeam();
   }catch(error){
     $("lineupEditorStatus").className="private-state error";
     $("lineupEditorStatus").textContent=error?.message||"No se pudieron cargar tus ligas.";
   }finally{if(button)button.disabled=false}
 }
+function lineupEditorEnvelope(raw){
+  let value=raw;
+  for(let depth=0;depth<5&&value&&typeof value==="object"&&!Array.isArray(value);depth++){
+    const nested=[value.lineup,value.result,value.data].find(item=>item&&typeof item==="object"&&!Array.isArray(item));
+    if(!nested||nested===value)break;
+    value=nested;
+  }
+  return value;
+}
+function lineupEditorFormationData(raw){
+  const envelope=lineupEditorEnvelope(raw);
+  return envelope?.formation&&typeof envelope.formation==="object"&&!Array.isArray(envelope.formation)?envelope.formation:envelope;
+}
 function lineupEditorReadFormation(raw){
-  const root=raw?.lineup&&obj(raw.lineup)?raw.lineup:raw;
-  let source=root?.tactical_formation??root?.tacticalFormation??root?.formation?.tacticalFormation??root?.formation??null;
-  if(obj(source))source=source.tacticalFormation??source.tactical_formation??source.value??null;
+  const envelope=lineupEditorEnvelope(raw);
+  const root=lineupEditorFormationData(envelope);
+  let source=root?.tactical_formation??root?.tacticalFormation??envelope?.tactical_formation??envelope?.tacticalFormation??envelope?.formation?.tacticalFormation??envelope?.formation??null;
+  if(source&&typeof source==="object"&&!Array.isArray(source))source=source.tacticalFormation??source.tactical_formation??source.value??null;
   let values=[];
   if(Array.isArray(source))values=source.map(Number);
-  else if(typeof source==="string")values=source.split(/[-,;/\s]+/).map(Number);
+  else if(typeof source==="string")values=source.split(/[-,;/\\s]+/).map(Number);
   if(values.length===3&&values.every(Number.isInteger)){
     const formatted=values.join("-");
     if(LINEUP_EDITOR_FORMATIONS.includes(formatted))return formatted;
@@ -1565,13 +1581,14 @@ function lineupEditorReadFormation(raw){
   return "4-4-2";
 }
 function lineupEditorApplyCurrentLineup(raw){
-  const root=raw?.lineup&&obj(raw.lineup)?raw.lineup:raw;
+  const envelope=lineupEditorEnvelope(raw);
+  const root=lineupEditorFormationData(envelope);
   const arrayFrom=value=>Array.isArray(value)?value:(value===null||value===undefined?[]:[value]);
   lineupEditorSelections={
-    goalkeeper:lineupEditorId(root?.goalkeeper),
-    defender:arrayFrom(root?.defender??root?.defenders).map(lineupEditorId).filter(Boolean),
-    midfield:arrayFrom(root?.midfield??root?.midfielders).map(lineupEditorId).filter(Boolean),
-    striker:arrayFrom(root?.striker??root?.strikers).map(lineupEditorId).filter(Boolean)
+    goalkeeper:lineupEditorId(root?.goalkeeper??envelope?.goalkeeper),
+    defender:arrayFrom(root?.defender??root?.defenders??envelope?.defender??envelope?.defenders).map(lineupEditorId).filter(Boolean),
+    midfield:arrayFrom(root?.midfield??root?.midfielders??envelope?.midfield??envelope?.midfielders).map(lineupEditorId).filter(Boolean),
+    striker:arrayFrom(root?.striker??root?.strikers??envelope?.striker??envelope?.strikers).map(lineupEditorId).filter(Boolean)
   };
   $("lineupFormationSelect").value=lineupEditorReadFormation(raw);
   lineupEditorRenderFields();
@@ -1811,6 +1828,15 @@ async function saveLineupEditor(){
 }
 function initLineupEditor(){
   $("lineupLoadLeagues")?.addEventListener("click",()=>loadLineupEditorLeagues(true));
+  $("lineupLeagueSelect")?.addEventListener("change",()=>{
+    if($("lineupLeagueSelect").value)loadLineupEditorTeam();
+    else{
+      lineupEditorContext=null;
+      $("lineupEditor").classList.add("hidden");
+      $("lineupEditorStatus").className="private-state";
+      $("lineupEditorStatus").textContent="Selecciona una liga para cargar tu once actual.";
+    }
+  });
   $("lineupLoadTeam")?.addEventListener("click",loadLineupEditorTeam);
   $("lineupReloadCurrent")?.addEventListener("click",()=>{if(lineupEditorContext)loadLineupEditorTeam()});
   $("lineupSaveCurrent")?.addEventListener("click",saveLineupEditor);
@@ -2692,48 +2718,57 @@ async function loadPrivateRoster(teamId,teamName,force=false){
     host.querySelectorAll("[data-private-roster-index]").forEach(button=>button.addEventListener("click",()=>openPrivatePlayer(rosterPlayers[Number(button.dataset.privateRosterIndex)])));
     host.querySelectorAll("[data-private-buyout-index]").forEach(button=>button.addEventListener("click",()=>payPrivateBuyout(rosterPlayers[Number(button.dataset.privateBuyoutIndex)],button)));
     const lineupButton=host.querySelector("[data-load-lineup]");
-    lineupButton.addEventListener("click",()=>loadPrivateLineup(teamId,selectedPrivateRosterTeam.name));
+    if(lineupButton)lineupButton.addEventListener("click",()=>loadPrivateLineup(teamId,teamName,lineupButton));
   }catch(error){
     host.innerHTML='<div class="private-empty">'+esc(error?.message||"No se pudo cargar la plantilla.")+'</div>';
   }
 }
-async function loadPrivateLineup(teamId,teamName){
+async function loadPrivateLineup(teamId,teamName,button=null){
   const host=$("myPrivateLineup");
   if(!host)return;
+  if(button)button.disabled=true;
   host.innerHTML='<div class="private-loading">Cargando once actual…</div>';
   try{
-    const data=await privateApi(PRIVATE_API_BASE+"/teams/"+encodeURIComponent(teamId)+"/lineup");
-    const root=data&&typeof data==="object"?(data.lineup&&typeof data.lineup==="object"?data.lineup:data):{};
-    const formation=root.tactical_formation||root.tacticalFormation||(root.formation&&root.formation.tacticalFormation)||root.formation||null;
+    const data=await privateApi(PRIVATE_API_BASE+"/teams/"+encodeURIComponent(teamId)+"/lineup",true);
+    const envelope=lineupEditorEnvelope(data);
+    const root=lineupEditorFormationData(envelope);
+    const formation=root?.tactical_formation??root?.tacticalFormation??envelope?.tactical_formation??envelope?.tacticalFormation??envelope?.formation?.tacticalFormation??null;
     const lookup=new Map();
     selectedPrivateRosterPlayers.forEach(player=>{
-      const pId=privateField(player,["playerTeamId","id","playerId"]);
-      const pName=privateField(player.playerMaster||player.player||player,["nickname","name","displayName","fullName"]);
+      const pId=privateDirectField(player,["playerTeamId","player_team_id","id","playerId"]);
+      const master=player?.playerMaster||player?.player||player;
+      const pName=privateDirectField(master,["nickname","name","displayName","fullName"]);
       if(pId!==null&&pName!==null)lookup.set(String(pId),String(pName));
     });
     const entryName=entry=>{
       if(entry===null||entry===undefined||entry==="")return "—";
       if(typeof entry==="object"){
-        const name=privateField(entry,["nickname","name","displayName","fullName"]);
-        const id=privateField(entry,["playerTeamId","id","playerId"]);
-        return name!==null?String(name):(id!==null?(lookup.get(String(id))||("Ficha "+id)):"Jugador");
+        const master=entry.playerMaster||entry.player||entry;
+        const name=privateDirectField(master,["nickname","name","displayName","fullName"]);
+        const id=privateDirectField(entry,["playerTeamId","player_team_id","id","playerId"]);
+        if(name!==null)return String(name);
+        return id!==null?(lookup.get(String(id))||("Ficha "+id)):"Jugador";
       }
       return lookup.get(String(entry))||("Ficha "+String(entry));
     };
     const groups=[
-      ["Portero",root.goalkeeper],
-      ["Defensas",root.defender||root.defenders],
-      ["Centrocampistas",root.midfield||root.midfielders],
-      ["Delanteros",root.striker||root.strikers]
+      ["Portero",root?.goalkeeper??envelope?.goalkeeper],
+      ["Defensas",root?.defender??root?.defenders??envelope?.defender??envelope?.defenders],
+      ["Centrocampistas",root?.midfield??root?.midfielders??envelope?.midfield??envelope?.midfielders],
+      ["Delanteros",root?.striker??root?.strikers??envelope?.striker??envelope?.strikers]
     ];
     const cards=groups.map(([label,value])=>{
       const entries=Array.isArray(value)?value:(value===null||value===undefined?[]:[value]);
       return '<div class="private-player-row"><div><div class="private-player-name">'+esc(label)+'</div><div class="private-player-meta">'+esc(entries.length?entries.map(entryName).join(" · "):"Sin jugador asignado")+'</div></div><div class="private-player-value">'+entries.length+'</div></div>';
     }).join("");
-    host.innerHTML='<div class="private-panel-intro">Once de '+esc(teamName)+(formation?' · Formación: '+esc(Array.isArray(formation)?formation.join("-"):formation):"")+'</div>'+cards+'<details style="margin-top:10px"><summary class="private-panel-intro">Ver respuesta técnica</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>';
+    const formationText=formation?(Array.isArray(formation)?formation.join("-"):formation):"";
+    const hasAnyPlayers=groups.some(([,value])=>Array.isArray(value)?value.length>0:value!==null&&value!==undefined&&value!=="");
+    host.innerHTML='<div class="private-panel-intro">Once de '+esc(teamName)+(formationText?' · Formación: '+esc(formationText):"")+'</div>'+cards+
+      (!hasAnyPlayers?'<div class="private-empty">La respuesta de la API no contiene jugadores reconocibles en la alineación de este equipo.</div>':'')+
+      '<details style="margin-top:10px"><summary class="private-panel-intro">Ver respuesta técnica</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>';
   }catch(error){
     host.innerHTML='<div class="private-empty">No se pudo cargar el once: '+esc(error?.message||"error")+'</div>';
-  }
+  }finally{if(button)button.disabled=false}
 }
 function renderPrivateMarket(rows){
   const host=$("myMarketContent");
