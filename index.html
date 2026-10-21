@@ -2403,31 +2403,14 @@ async function refreshPrivateDailyRewardStatus(){
     status.textContent=(error?.message||"No se pudo comprobar la recompensa.")+" Puedes reintentarlo más tarde.";
   }
 }
-async function handlePrivateDailyRewardClick(){
+function handlePrivateDailyRewardClick(){
   const state=selectedPrivateDailyRewardState;
   if(!selectedPrivateLeague||!state||state.redeemed)return;
-  const teamId=state.teamId||selectedPrivateOwnTeamId;
-  const leagueId=state.leagueId||privateLeagueId(selectedPrivateLeague);
-  if(!teamId||!leagueId){privateRenderDailyReward(null);return;}
-  const rewardedAdType=window.prompt("Introduce el rewardedAdType de un anuncio recompensado válido de LALIGA:");
-  if(!rewardedAdType)return;
-  const rewardedAd=window.prompt("Introduce el rewardedAd (prueba real emitida por el anuncio de LALIGA). No introduzcas un valor inventado:");
-  if(!rewardedAd)return;
-  const button=$("privateDailyRewardButton"),status=$("privateDailyRewardStatus");
-  if(button){button.disabled=true;button.textContent="Enviando…";}
-  if(status)status.textContent="Enviando la reclamación a la API de esta liga…";
-  try{
-    const path=PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/team/daily-reward";
-    const confirmation="RECOMPENSA DIARIA\n\nLiga: "+privateLeagueName(selectedPrivateLeague)+"\nEquipo: "+teamId+"\n\nSe enviará a LALIGA la prueba del anuncio que has introducido. ¿Confirmas la reclamación?";
-    const result=await privateApiWrite(path,{teamId:String(teamId),rewardedAdType:String(rewardedAdType),rewardedAd:String(rewardedAd)},"POST",confirmation);
-    if(result&&result.cancelled){if(button){button.disabled=false;button.textContent="Recoger Monedas";}if(status)status.textContent="Reclamación cancelada.";return;}
-    privateApiCache.clear();
-    await refreshPrivateDailyRewardStatus();
-    if(status&&!selectedPrivateDailyRewardState?.redeemed)status.textContent="LALIGA no ha confirmado la recompensa. Comprueba que la prueba del anuncio sea válida.";
-  }catch(error){
-    if(button){button.disabled=false;button.textContent="Reintentar recompensa";}
-    if(status)status.textContent=(error&&error.message?error.message:"No se pudo reclamar la recompensa.")+" La API exige una prueba válida del anuncio recompensado.";
-  }
+  // La API exige una prueba real generada por el SDK de anuncio recompensado.
+  window.open("https://fantasy.laliga.com/","_blank","noopener,noreferrer");
+  privateRenderDailyReward(Object.assign({},state,{officialOpened:true}));
+  const status=$("privateDailyRewardStatus");
+  if(status)status.textContent="Completa el anuncio recompensado en LALIGA Fantasy y vuelve aquí para comprobar la recompensa. Esta web aún no puede generar la prueba de anuncio necesaria.";
 }
 
 function privateExtractMoney(data){
@@ -2817,9 +2800,43 @@ async function loadPrivateRoster(teamId,teamName,force=false){
     host.querySelectorAll("[data-private-buyout-index]").forEach(button=>button.addEventListener("click",()=>payPrivateBuyout(rosterPlayers[Number(button.dataset.privateBuyoutIndex)],button)));
     const lineupButton=host.querySelector("[data-load-lineup]");
     if(lineupButton)lineupButton.addEventListener("click",()=>loadPrivateLineup(teamId,teamName,lineupButton,rosterPlayers));
+    if(!isOwnRoster)enrichPrivateRosterShields(rosterPlayers,leagueId);
   }catch(error){
     host.innerHTML='<div class="private-empty">'+esc(error?.message||"No se pudo cargar la plantilla.")+'</div>';
   }
+}
+function privateShieldDescription(data){
+  if(!data||typeof data!=="object")return null;
+  const visit=(node,depth)=>{
+    if(!node||typeof node!=="object"||depth>5)return null;
+    const activeKeys=["shielded","isShielded","shieldActive","isProtected","protected","clauseBlocked","isClauseBlocked","buyoutBlocked","blocked"];
+    const dayKeys=["shieldDays","daysRemaining","remainingDays","blockedDays","protectionDays","shieldDurationDays","daysLeft"];
+    const endKeys=["shieldUntil","protectedUntil","blockedUntil","shieldEndDate","protectionEndDate","expiresAt","endDate"];
+    const active=activeKeys.some(k=>node[k]===true||node[k]===1||String(node[k]).toLowerCase()==="true"||String(node[k]).toLowerCase()==="active");
+    if(active){
+      for(const key of dayKeys){const n=Number(node[key]);if(Number.isFinite(n)&&n>0)return "Cláusula bloqueada "+n+" día"+(n===1?"":"s");}
+      for(const key of endKeys){const v=node[key];if(v!==undefined&&v!==null&&v!==""){const ms=typeof v==="number"?(v<1e12?v*1000:v):Date.parse(v);if(Number.isFinite(ms)){const days=Math.ceil((ms-Date.now())/86400000);if(days>0)return "Cláusula bloqueada "+days+" día"+(days===1?"":"s");}}
+      }
+      return "Cláusula bloqueada";
+    }
+    for(const value of Object.values(node)){const result=visit(value,depth+1);if(result)return result;}
+    return null;
+  };
+  return visit(data,0);
+}
+async function enrichPrivateRosterShields(rosterPlayers,leagueId){
+  await Promise.all(rosterPlayers.map(async(player,index)=>{
+    const playerTeamId=privateDirectField(player,["playerTeamId","player_team_id"])??privateDirectField(player?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(player?.playerTeamData,["playerTeamId","player_team_id","id"]);
+    if(playerTeamId===null)return;
+    try{
+      const data=await privateApi(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/player-team/"+encodeURIComponent(playerTeamId)+"/check-shield",true);
+      const label=privateShieldDescription(data);
+      if(!label)return;
+      const button=$("myLeagueRoster")?.querySelector('[data-private-roster-index="'+index+'"]');
+      const meta=button?.querySelector(".private-player-meta");
+      if(meta&&!meta.textContent.includes("Cláusula bloqueada"))meta.textContent=(meta.textContent?meta.textContent+" · ":"")+label;
+    }catch(error){/* Si LALIGA deniega la consulta, se mantiene visible la plantilla. */}
+  }));
 }
 function lineupViewerOpenModal(teamName,leagueName,html){
   $("modalTitle").textContent="Once de "+String(teamName||"Equipo");
