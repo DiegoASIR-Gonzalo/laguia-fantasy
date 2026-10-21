@@ -450,6 +450,7 @@ main.wrap{padding-bottom:96px!important}
 .private-daily-reward-button{flex:0 0 auto;background:#ffd32a!important;border-color:#ffd32a!important;color:#241d00!important;font-weight:950!important;font-size:11px!important;padding:10px 13px!important;white-space:nowrap;box-shadow:0 2px 0 #9f7e00}
 .private-daily-reward-button:hover:not(:disabled){background:#ffe66c!important;border-color:#ffe66c!important}
 .private-daily-reward-button:disabled{opacity:.58;cursor:not-allowed;box-shadow:none}
+.private-standing-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 10px}.private-standing-toolbar label{font-size:10px;color:#999}.private-standing-toolbar select{font-size:11px;padding:7px 9px}
 @media(max-width:520px){.private-daily-reward{align-items:flex-start;flex-direction:column}.private-daily-reward-button{width:100%}}
 
 
@@ -2402,19 +2403,31 @@ async function refreshPrivateDailyRewardStatus(){
     status.textContent=(error?.message||"No se pudo comprobar la recompensa.")+" Puedes reintentarlo más tarde.";
   }
 }
-function handlePrivateDailyRewardClick(){
+async function handlePrivateDailyRewardClick(){
   const state=selectedPrivateDailyRewardState;
-  if(!selectedPrivateLeague||!state)return;
-  if(state.redeemed)return;
-  if(state.officialOpened){
-    refreshPrivateDailyRewardStatus();
-    return;
+  if(!selectedPrivateLeague||!state||state.redeemed)return;
+  const teamId=state.teamId||selectedPrivateOwnTeamId;
+  const leagueId=state.leagueId||privateLeagueId(selectedPrivateLeague);
+  if(!teamId||!leagueId){privateRenderDailyReward(null);return;}
+  const rewardedAdType=window.prompt("Introduce el rewardedAdType de un anuncio recompensado válido de LALIGA:");
+  if(!rewardedAdType)return;
+  const rewardedAd=window.prompt("Introduce el rewardedAd (prueba real emitida por el anuncio de LALIGA). No introduzcas un valor inventado:");
+  if(!rewardedAd)return;
+  const button=$("privateDailyRewardButton"),status=$("privateDailyRewardStatus");
+  if(button){button.disabled=true;button.textContent="Enviando…";}
+  if(status)status.textContent="Enviando la reclamación a la API de esta liga…";
+  try{
+    const path=PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/team/daily-reward";
+    const confirmation="RECOMPENSA DIARIA\n\nLiga: "+privateLeagueName(selectedPrivateLeague)+"\nEquipo: "+teamId+"\n\nSe enviará a LALIGA la prueba del anuncio que has introducido. ¿Confirmas la reclamación?";
+    const result=await privateApiWrite(path,{teamId:String(teamId),rewardedAdType:String(rewardedAdType),rewardedAd:String(rewardedAd)},"POST",confirmation);
+    if(result&&result.cancelled){if(button){button.disabled=false;button.textContent="Recoger Monedas";}if(status)status.textContent="Reclamación cancelada.";return;}
+    privateApiCache.clear();
+    await refreshPrivateDailyRewardStatus();
+    if(status&&!selectedPrivateDailyRewardState?.redeemed)status.textContent="LALIGA no ha confirmado la recompensa. Comprueba que la prueba del anuncio sea válida.";
+  }catch(error){
+    if(button){button.disabled=false;button.textContent="Reintentar recompensa";}
+    if(status)status.textContent=(error&&error.message?error.message:"No se pudo reclamar la recompensa.")+" La API exige una prueba válida del anuncio recompensado.";
   }
-  // LALIGA validates a real rewarded-ad proof; this page has no rewarded-ad SDK.
-  window.open("https://fantasy.laliga.com/","_blank","noopener,noreferrer");
-  privateRenderDailyReward(Object.assign({},state,{officialOpened:true}));
-  const status=$("privateDailyRewardStatus");
-  if(status)status.textContent="Para recibir las monedas, completa el anuncio recompensado en LALIGA Fantasy. Luego vuelve y pulsa «Comprobar monedas». Esta web no genera ni falsifica la prueba del anuncio.";
 }
 
 function privateExtractMoney(data){
@@ -2730,19 +2743,29 @@ async function switchPrivateLeagueTab(tab){
 function renderPrivateStanding(rows){
   const host=$("myStandingPanel");
   if(!rows.length){host.innerHTML='<div class="private-empty">No hay filas para mostrar.</div>';return}
-  const html=rows.map((row,index)=>{
+  const sortBar='<div class="private-standing-toolbar"><label for="privateStandingSort">Ordenar clasificación</label><select id="privateStandingSort"><option value="desc">Puntos: mayor a menor</option><option value="asc">Puntos: menor a mayor</option></select></div>';
+  const sortedRows=direction=>rows.slice().sort((a,b)=>{
+    const av=Number(privateField(a,["totalPoints","points","pointsTotal","score","totalScore","standingPoints","weekPoints"]));
+    const bv=Number(privateField(b,["totalPoints","points","pointsTotal","score","totalScore","standingPoints","weekPoints"]));
+    const aok=Number.isFinite(av),bok=Number.isFinite(bv);
+    if(!aok&&!bok)return 0;if(!aok)return 1;if(!bok)return -1;
+    return direction==="asc"?av-bv:bv-av;
+  });
+  const tableHtml=ordered=>ordered.map((row,index)=>{
     const teamId=privateId(row,"team");
-    const rank=privateField(row,["position","rank","ranking","place","standingPosition"])??(index+1);
     const manager=privateField(row,["managerName","teamName","name","nickname","displayName","username","manager"]);
     const points=privateField(row,["totalPoints","points","pointsTotal","score","totalScore","standingPoints","weekPoints"]);
     const value=privateField(row,["teamValue","value","teamWorth"]);
     const teamLabel=privateText(manager,teamId?"Equipo "+teamId:"Equipo");
-    return '<tr><td class="numeric">'+esc(rank)+'</td><td>'+esc(teamLabel)+'</td><td class="numeric">'+esc(points===null?"—":points)+'</td><td class="numeric">'+esc(value===null?"—":privateMoney(value))+'</td><td class="numeric">'+(teamId?'<button type="button" data-roster-team="'+esc(teamId)+'" data-roster-name="'+esc(teamLabel)+'">Ver</button>':'—')+'</td></tr>';
+    return '<tr><td class="numeric">'+(index+1)+'</td><td>'+esc(teamLabel)+'</td><td class="numeric">'+esc(points===null?"—":points)+'</td><td class="numeric">'+esc(value===null?"—":privateMoney(value))+'</td><td class="numeric">'+(teamId?'<button type="button" data-roster-team="'+esc(teamId)+'" data-roster-name="'+esc(teamLabel)+'">Ver</button>':'—')+'</td></tr>';
   }).join("");
-  host.innerHTML='<div class="private-table-wrap"><table class="private-table"><thead><tr><th>#</th><th>Manager / equipo</th><th class="numeric">Puntos</th><th class="numeric">Valor plantilla</th><th class="numeric">Plantilla</th></tr></thead><tbody>'+html+'</tbody></table></div>';
-  host.querySelectorAll("[data-roster-team]").forEach(btn=>btn.addEventListener("click",()=>{
-    switchPrivateLeagueTab("teams").then(()=>loadPrivateRoster(btn.dataset.rosterTeam,btn.dataset.rosterName));
-  }));
+  const draw=direction=>{
+    host.innerHTML=sortBar+'<div class="private-table-wrap"><table class="private-table"><thead><tr><th>#</th><th>Manager / equipo</th><th class="numeric">Puntos</th><th class="numeric">Valor plantilla</th><th class="numeric">Plantilla</th></tr></thead><tbody>'+tableHtml(sortedRows(direction))+'</tbody></table></div>';
+    host.querySelector("#privateStandingSort").value=direction;
+    host.querySelector("#privateStandingSort").addEventListener("change",e=>draw(e.target.value));
+    host.querySelectorAll("[data-roster-team]").forEach(btn=>btn.addEventListener("click",()=>{switchPrivateLeagueTab("teams").then(()=>loadPrivateRoster(btn.dataset.rosterTeam,btn.dataset.rosterName));}));
+  };
+  draw("desc");
 }
 function renderPrivateLeagueTeams(rows){
   const host=$("myLeagueTeamList");
@@ -2955,14 +2978,18 @@ function renderPrivateMarket(rows){
 function renderPrivateActivity(rows){
   const host=$("myActivityContent");
   if(!rows.length){host.innerHTML='<div class="private-empty">No hay movimientos visibles en esta página o la respuesta no contiene una lista reconocible.</div>';return}
+  const readName=value=>typeof value==="string"||typeof value==="number"?String(value):privateText(privateField(value,["managerName","teamName","name","nickname","displayName","username","fullName"]),"");
   host.innerHTML=rows.map(item=>{
-    const action=privateField(item,["activityName","description","typeName","activityType","title","activityTypeId"]);
-    const manager=privateField(item,["managerName","teamName","manager","team"]);
-    const player=privateField(item,["playerName","nickname","playerMaster","player"]);
-    const money=privateField(item,["money","amount","price","offerMoney"]);
-    const date=privateField(item,["date","createdAt","activityDate","creationDate"]);
-    const meta=[privateText(manager),player!==null?"Jugador: "+privateText(player):null,date!==null?privateDate(date):null].filter(Boolean).join(" · ");
-    return '<div class="private-activity-row"><div><div class="private-market-name">'+esc(privateText(action,"Movimiento de liga"))+'</div><div class="private-activity-meta">'+esc(meta)+'</div></div><div class="private-market-price">'+esc(money===null?"":privateMoney(money))+'</div></div>';
+    const action=String(privateField(item,["activityName","description","typeName","activityType","title","activityTypeId"])??"").toLowerCase();
+    const actor=readName(privateField(item,["actor","user","manager","managerName","team","teamName","sourceTeam","buyer","buyerTeam","fromTeam"]));
+    const player=readName(privateField(item,["playerName","nickname","playerMaster","player","footballPlayer","targetPlayer"]));
+    const target=readName(privateField(item,["targetManager","targetTeam","owner","seller","sellerTeam","toTeam","receiver"]));
+    const money=privateField(item,["money","amount","price","offerMoney","buyoutClauseToPay","transferPrice"]);
+    const date=privateField(item,["date","createdAt","activityDate","creationDate","timestamp"]);
+    const isBuy=/buy|purchase|bought|compr|adquis|clausulazo|buyout/.test(action);
+    const readable=isBuy&&actor&&player?actor+" ha comprado a "+player+(money!==null?" por "+privateMoney(money):"")+(target?" a "+target:""):privateText(privateField(item,["description","message","activityName","title","typeName"]),"Movimiento de liga");
+    const meta=[date!==null?privateDate(date):null].filter(Boolean).join(" · ");
+    return '<div class="private-activity-row"><div><div class="private-market-name">'+esc(readable)+'</div><div class="private-activity-meta">'+esc(meta)+'</div></div><div class="private-market-price">'+esc(money===null?"":privateMoney(money))+'</div></div>';
   }).join("");
 }
 $("myLeaguesReload").onclick=()=>loadMyLeagues(true);
