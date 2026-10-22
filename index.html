@@ -917,6 +917,21 @@ button:active{transform:translateY(1px)}
   .nav button::after{left:10px;right:10px}
   .current-week-panel,.best-panel,.private-detail,.private-login-prompt{padding:18px!important}
 }
+
+/* ===== Capa 3: bloqueo de cláusula ===== */
+.lock-icon{flex:none;vertical-align:-2px;margin-right:4px}
+.clause-lock{display:flex;align-items:flex-start;gap:7px;margin-top:6px;font-size:12px;line-height:1.4;color:var(--gold);white-space:normal}
+.clause-lock .lock-icon{margin:2px 0 0}
+.clause-lock b{font-weight:600}
+.clause-lock span{color:#d9c36a}.clause-lock b{color:var(--gold)}
+.private-roster-entry.is-clause-locked{background:#171306!important;box-shadow:inset 3px 0 0 var(--gold)}
+.private-roster-entry.is-clause-locked .private-player-open:hover{box-shadow:none!important}
+.private-player-side small.is-locked{color:var(--gold)}
+.private-action-button.is-locked{background:var(--s3)!important;border-color:transparent!important;color:var(--gold)!important;display:inline-flex;align-items:center;gap:4px;opacity:1!important}
+.clause-lock-banner{display:flex;align-items:flex-start;gap:12px;margin:0 20px 16px;padding:14px 16px;background:#171306;color:var(--gold);box-shadow:inset 3px 0 0 var(--gold)}
+.clause-lock-banner .lock-icon{width:20px;height:20px;margin:1px 0 0}
+.clause-lock-banner strong{display:block;font-size:15px;font-family:var(--f-head)}
+.clause-lock-banner span{display:block;font-size:13px;color:#d9c36a;margin-top:3px;line-height:1.45}
 </style>
 </head>
 <body>
@@ -2286,6 +2301,7 @@ function renderPlayer(data,privateContext=null){
   if(!p.im&&context?.image)p.im=context.image;
   if(p.market===null&&context?.price!==null&&context?.price!==undefined)p.market=context.price;
   const clause=context?.clause??null,contextPrice=context?.price??null;
+  const lock=privateContext?privateClauseLock(privateContext):null;
   const safeId=p.id;
   const basicEntries=Object.entries(obj(data)?data:{}).filter(([k])=>!["playerMaster","seasons","marketPlayer"].includes(k)).slice(0,80);
   $("modalContent").innerHTML=
@@ -2298,6 +2314,7 @@ function renderPlayer(data,privateContext=null){
     '<div class="highlight'+(privateContext?' has-private-context':'')+'"><div><span>Puntos</span><b>'+(p.last===null?"—":p.last.toLocaleString("es-ES"))+'</b></div>'+
       '<div><span>Media de puntos</span><b class="green">'+(p.avg===null?"—":p.avg.toLocaleString("es-ES",{maximumFractionDigits:2}))+'</b></div>'+
       '<div><span>'+(privateContext?'Precio en la liga':'Valor de mercado')+'</span><b class="gold">'+money(privateContext?(contextPrice===null?p.market:contextPrice):p.market)+'</b></div>'+(privateContext?'<div><span>Cláusula</span><b class="gold">'+(clause===null?'—':esc(money(clause)))+'</b></div>':'')+'</div>'+
+    (lock?privateLockBanner(lock):'')+
     '<div class="modal-tabs"><button class="active" data-tab="summary">Resumen</button>'+
       (stats.length?'<button data-tab="weeks">Por jornadas ('+stats.length+')</button>':"")+
       '<button data-tab="fields">Más datos</button>'+(media.length?'<button data-tab="media">Imágenes ('+media.length+')</button>':"")+
@@ -2528,6 +2545,36 @@ function privatePlayerMaster(entry){
   return entry;
 }
 function privateNormalizeName(value){return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+const PRIVATE_LOCK_KEYS=["buyoutClauseLockedEndTime","buyout_clause_locked_end_time","buyoutClauseLockedEndDate","buyoutClauseLockedUntil","clauseLockedEndTime"];
+const PRIVATE_LOCK_ICON='<svg class="lock-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4V7z"/></svg>';
+function privateLockTime(value){
+  if(value===null||value===undefined||value==="")return null;
+  const text=String(value).trim();
+  if(typeof value==="number"||/^\d+(\.\d+)?$/.test(text)){const n=Number(value);if(!Number.isFinite(n)||n<=0)return null;return n<1e12?n*1000:n;}
+  const ms=Date.parse(text);return Number.isFinite(ms)?ms:null;
+}
+function privateFindLock(node,depth=0){
+  if(!node||typeof node!=="object"||depth>4)return undefined;
+  for(const key of PRIVATE_LOCK_KEYS){const v=node[key];if(v!==undefined&&v!==null&&v!=="")return v;}
+  for(const v of Object.values(node)){if(v&&typeof v==="object"){const found=privateFindLock(v,depth+1);if(found!==undefined)return found;}}
+  return undefined;
+}
+function privateClauseLock(entry){
+  const ms=privateLockTime(privateFindLock(entry));
+  if(ms===null||ms<=Date.now())return null;
+  const left=ms-Date.now(),d=Math.floor(left/864e5),h=Math.floor(left%864e5/36e5),m=Math.floor(left%36e5/6e4);
+  const when=new Date(ms);
+  return {ms,
+    date:when.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}),
+    time:when.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}),
+    remaining:d>0?d+" d "+h+" h":(h>0?h+" h "+m+" min":Math.max(m,1)+" min")};
+}
+function privateLockBadge(lock){
+  return '<span class="clause-lock" title="Cláusula bloqueada hasta el '+lock.date+' a las '+lock.time+'">'+PRIVATE_LOCK_ICON+'<span><b>Cláusula bloqueada</b> hasta el '+lock.date+' a las '+lock.time+' · quedan '+lock.remaining+'</span></span>';
+}
+function privateLockBanner(lock){
+  return '<div class="clause-lock-banner">'+PRIVATE_LOCK_ICON+'<div><strong>Cláusula bloqueada</strong><span>No se puede pagar la cláusula de este jugador hasta el '+lock.date+' a las '+lock.time+' (quedan '+lock.remaining+').</span></div></div>';
+}
 function privatePlayerInfo(entry){
   const master=privatePlayerMaster(entry);
   const name=privateDirectField(master,["nickname","name","displayName","fullName","shortName"])??privateField(master,["nickname","name","displayName","fullName","shortName"])??privateField(entry,["nickname","name","displayName","fullName","shortName"]);
@@ -2554,9 +2601,10 @@ function privatePlayerInfo(entry){
 function openPrivatePlayer(entry){
   const info=privatePlayerInfo(entry);
   if(info.id){openPlayer(info.id,entry);return;}
+  const lockInfo=privateClauseLock(entry);
   $("modalTitle").textContent=info.name;
   $("modalRoute").textContent="Datos de plantilla privada";
-  $("modalContent").innerHTML='<div class="profile">'+(info.image?'<img class="profile-img" src="'+esc(info.image)+'" alt="">':'<div class="profile-img"></div>')+'<div><h2>'+esc(info.name)+'</h2><div class="team">Ficha estadística no disponible: la respuesta privada no contiene un ID de jugador reconocible.</div></div></div><div class="highlight has-private-context"><div><span>Precio</span><b class="gold">'+esc(info.price===null?'—':privateMoney(info.price))+'</b></div><div><span>Cláusula</span><b class="gold">'+esc(info.clause===null?'—':privateMoney(info.clause))+'</b></div></div><div class="modal-body"><div class="private-warning">No se pueden consultar las jornadas sin un ID público del jugador. Los datos de precio y cláusula proceden de la plantilla privada.</div><details><summary>Datos recibidos</summary><pre>'+esc(JSON.stringify(entry,null,2))+'</pre></details></div>';
+  $("modalContent").innerHTML='<div class="profile">'+(info.image?'<img class="profile-img" src="'+esc(info.image)+'" alt="">':'<div class="profile-img"></div>')+'<div><h2>'+esc(info.name)+'</h2><div class="team">Ficha estadística no disponible: la respuesta privada no contiene un ID de jugador reconocible.</div></div></div><div class="highlight has-private-context"><div><span>Precio</span><b class="gold">'+esc(info.price===null?'—':privateMoney(info.price))+'</b></div><div><span>Cláusula</span><b class="gold">'+esc(info.clause===null?'—':privateMoney(info.clause))+'</b></div></div>'+(lockInfo?privateLockBanner(lockInfo):'')+'<div class="modal-body"><div class="private-warning">No se pueden consultar las jornadas sin un ID público del jugador. Los datos de precio y cláusula proceden de la plantilla privada.</div><details><summary>Datos recibidos</summary><pre>'+esc(JSON.stringify(entry,null,2))+'</pre></details></div>';
   $("modal").classList.remove("hidden");$("modal").setAttribute("aria-hidden","false");
 }
 function privateText(v,fallback="—"){
@@ -3120,10 +3168,11 @@ async function loadPrivateRoster(teamId,teamName,force=false){
       const avatar=info.image?'<img class="private-player-avatar" src="'+esc(info.image)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<span class="private-player-avatar-fallback" aria-hidden="true"></span>';
       const price=info.price===null?'Precio n/d':privateMoney(info.price);
       const clause=info.clause===null?'Cláusula n/d':'Cláusula '+privateMoney(info.clause);
+      const lock=privateClauseLock(player);
       const buyoutPlayerTeamId=privateDirectField(player,["playerTeamId","player_team_id"])??privateDirectField(player?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(player?.playerTeamData,["playerTeamId","player_team_id","id"]);
       const canBuyout=!isOwnRoster&&buyoutPlayerTeamId!==null&&privateIntegerMoney(info.clause)!==null;
-      const buyoutButton=canBuyout?'<button type="button" class="private-action-button" data-private-buyout-index="'+index+'">Clausulazo</button>':'';
-      return '<div class="private-roster-entry"><button type="button" class="private-player-row private-player-open" data-private-roster-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta||"Ver ficha y estadísticas")+'</span></span></span><span class="private-player-side"><strong>'+esc(price)+'</strong><small>'+esc(clause)+'</small></span></button>'+buyoutButton+'</div>';
+      const buyoutButton=lock?'<button type="button" class="private-action-button is-locked" disabled title="Bloqueada hasta el '+lock.date+' a las '+lock.time+'">'+PRIVATE_LOCK_ICON+' Bloqueado</button>':canBuyout?'<button type="button" class="private-action-button" data-private-buyout-index="'+index+'">Clausulazo</button>':'';
+      return '<div class="private-roster-entry'+(lock?' is-clause-locked':'')+'"><button type="button" class="private-player-row private-player-open" data-private-roster-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta||"Ver ficha y estadísticas")+'</span>'+(lock?privateLockBadge(lock):'')+'</span></span><span class="private-player-side"><strong>'+esc(price)+'</strong><small class="'+(lock?'is-locked':'')+'">'+(lock?PRIVATE_LOCK_ICON:'')+esc(clause)+'</small></span></button>'+buyoutButton+'</div>';
     }).join("");
     host.innerHTML='<div class="private-roster-head"><h3>'+esc(selectedPrivateRosterTeam.name)+' · Plantilla</h3><button type="button" data-load-lineup="'+esc(teamId)+'">Ver once</button></div>'+
       (rosterPlayers.length?'<div>'+rows+'</div>':'<div class="private-empty">La respuesta no contiene una lista de jugadores reconocible. Consulta la respuesta de API o vuelve a intentarlo.</div>');
@@ -3157,6 +3206,7 @@ function privateShieldDescription(data){
 }
 async function enrichPrivateRosterShields(rosterPlayers,leagueId){
   await Promise.all(rosterPlayers.map(async(player,index)=>{
+    if(privateClauseLock(player))return;
     const playerTeamId=privateDirectField(player,["playerTeamId","player_team_id"])??privateDirectField(player?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(player?.playerTeamData,["playerTeamId","player_team_id","id"]);
     if(playerTeamId===null)return;
     try{
@@ -3317,7 +3367,8 @@ function renderPrivateMarket(rows){
     const marketValue=info.cached?.market??privateField(item,["currentMarketValue","marketValue","market_value","fantasyValue"])??price;
     const minimum=privateIntegerMoney(marketValue);
     const disabled=!marketId||!minimum;
-    return '<div class="private-market-listing"><button type="button" class="private-market-row private-player-open" data-private-market-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-market-name">'+esc(info.name||"Jugador en mercado")+'</span><span class="private-market-meta">'+esc(meta)+'</span></span></span><span class="private-player-side"><strong>'+esc(price===null?"Precio n/d":privateMoney(price))+'</strong>'+(minimum!==null?'<small>Mínimo '+esc(privateMoney(minimum))+'</small>':'')+'</span></button><button type="button" class="private-market-action" data-private-bid-index="'+index+'" '+(disabled?'disabled title="No hay datos suficientes para pujar"':'')+'>Pujar</button></div>';
+    const lock=privateClauseLock(item);
+    return '<div class="private-market-listing"><button type="button" class="private-market-row private-player-open" data-private-market-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-market-name">'+esc(info.name||"Jugador en mercado")+'</span><span class="private-market-meta">'+esc(meta)+'</span>'+(lock?privateLockBadge(lock):'')+'</span></span><span class="private-player-side"><strong>'+esc(price===null?"Precio n/d":privateMoney(price))+'</strong>'+(minimum!==null?'<small>Mínimo '+esc(privateMoney(minimum))+'</small>':'')+'</span></button><button type="button" class="private-market-action" data-private-bid-index="'+index+'" '+(disabled?'disabled title="No hay datos suficientes para pujar"':'')+'>Pujar</button></div>';
   }).join("");
   host.querySelectorAll("[data-private-market-index]").forEach(button=>button.addEventListener("click",()=>openPrivatePlayer(rows[Number(button.dataset.privateMarketIndex)])));
   host.querySelectorAll("[data-private-bid-index]").forEach(button=>button.addEventListener("click",()=>placePrivateBid(rows[Number(button.dataset.privateBidIndex)],Number(button.dataset.privateBidIndex),button)));
