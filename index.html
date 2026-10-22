@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0a0a">
 <title>LALIGA Fantasy · Inicio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#080c15;--panel:#111927;--panel2:#0c1421;--line:#243149;--txt:#edf4ff;--muted:#98a7bf;--gold:#f3c85b;--blue:#71b9ff;--green:#38d39b;--red:#ff7187;--shadow:0 12px 34px rgba(0,0,0,.25)}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--txt)}
@@ -482,25 +486,7 @@ main.wrap{padding-bottom:96px!important}
 .private-action-button{align-self:center;margin:6px 8px 6px 0;padding:8px 10px!important;background:#e50914!important;border-color:#e50914!important;color:#fff!important;font-size:9px!important;font-weight:850;white-space:nowrap}
 @media(max-width:500px){.private-market-balance{align-items:flex-start;padding:9px;gap:6px}.private-market-balance strong{font-size:18px}.private-market-balance button{font-size:9px;padding:7px 6px}.private-market-listing,.private-roster-entry{grid-template-columns:minmax(0,1fr) auto}.private-market-action,.private-action-button{margin-right:5px;padding:7px 6px!important;font-size:8px!important}}
 .private-loading{font-size:11px;color:#a6a6a6;padding:12px 4px}
-.private-clause-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 10px;flex-wrap:wrap}
-.private-clause-toolbar label{font-size:10px;color:#999}
-.private-clause-toolbar select,.private-clause-toolbar button{font-size:10px;padding:8px 9px}
-.private-clause-status{font-size:10px;color:#888;line-height:1.5;min-height:18px;margin:2px 0 10px}
-.private-clause-status.good{color:#8ae2b6}.private-clause-status.error{color:#ff9ca5}
-.private-clause-player{appearance:none;border:0;background:transparent;color:#f2f2f2;padding:0;text-align:left;font:inherit;font-weight:800;cursor:pointer}
-.private-clause-player:hover{text-decoration:underline}
-.private-clause-lock{display:inline-block;border:1px solid #343434;padding:4px 6px;font-size:9px;white-space:nowrap}
-.private-clause-lock.blocked{color:#ff9ca5;border-color:#633039;background:#17090b}
-.private-clause-lock.clear{color:#8ae2b6;border-color:#285541;background:#08130e}
-.private-clause-lock.unknown{color:#888}
-.private-clause-summary{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
-.private-clause-summary span{font-size:9px;color:#aaa;background:#0b0b0b;border:1px solid #292929;padding:6px 8px}
 @media(max-width:650px){
-  .private-clause-toolbar{display:grid;grid-template-columns:1fr 1fr;justify-content:stretch}
-  .private-clause-toolbar label{grid-column:1/-1}
-  .private-clause-toolbar select,.private-clause-toolbar button{width:100%;min-width:0}
-  .private-clause-toolbar button{grid-column:1/-1}
-
   .private-league-grid,.private-team-list{grid-template-columns:1fr}
   .private-detail{padding:9px}
   .private-detail-head{align-items:flex-start;flex-direction:column;gap:9px}
@@ -604,14 +590,342 @@ main.wrap{padding-bottom:96px!important}
  .private-slot-name{font-size:8px}
 }
 
+
+/* ===== Rediseño: minimalista y cómodo (colores sólidos) ===== */
+:root{--bg:#0a0a0a;--s1:#121212;--s2:#181818;--ln:#262626;--ln2:#363636;--txt:#f5f5f5;--muted:#a3a3a3;--dim:#7a7a7a;--red:#e50914;--gold:#f2c300;--green:#35c878;--line:#262626;--panel:#121212;--panel2:#121212}
+*{text-transform:none!important}
+html,body{background:var(--bg)!important;color:var(--txt);font-family:Inter,"SF Pro Text","Segoe UI",system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{padding:0!important}
+.app-shell{width:100%!important;max-width:none!important;min-height:100vh!important;margin:0!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Controles */
+button,input,select{border-radius:10px!important;font-size:14px;padding:10px 14px;background:var(--s1);border:1px solid var(--ln2);color:var(--txt);transition:border-color .15s,background .15s}
+button:hover{border-color:#5a5a5a;background:var(--s2)}
+input:focus,select:focus{border-color:var(--gold)!important;box-shadow:0 0 0 3px rgba(242,195,0,.15)!important;outline:none}
+input::placeholder{color:var(--dim)}
+.primary,.searchline button,.compare-action{background:var(--red)!important;border-color:var(--red)!important;color:#fff!important;font-weight:700}
+.primary:hover,.searchline button:hover,.compare-action:hover{background:#c40812!important;border-color:#c40812!important}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+/* Cabecera y navegación */
+.topbar{height:auto!important;background:var(--bg)!important;border-bottom:1px solid var(--ln);backdrop-filter:none}
+.topbar .wrap{width:min(980px,92vw)!important;height:auto!important;padding:12px 0!important;display:flex!important;flex-wrap:wrap;align-items:center;gap:10px 24px}
+.mobile-brand{order:1;font-size:18px!important;font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.brand-dot{width:10px;height:10px;background:var(--red);border-radius:50%}
+.brand-accent{color:var(--red)}
+.topbar .auth-button{order:2;margin-left:auto;background:transparent!important;border:1px solid var(--ln2);border-radius:999px!important;font-size:13px!important;padding:8px 16px;color:var(--txt)}
+.topbar .auth-button.logged{border-color:var(--green);color:var(--green)}
+.topbar .nav{order:3;display:flex!important;width:100%;gap:2px!important;overflow-x:auto;scrollbar-width:none;margin:0 -4px}
+.topbar .nav::-webkit-scrollbar{display:none}
+.nav button{flex:none;font-size:14px!important;padding:9px 14px!important;border:0!important;border-radius:8px!important;background:transparent!important;color:var(--muted)!important;font-weight:500;white-space:nowrap}
+.nav button:hover{color:var(--txt)!important;background:var(--s2)!important}
+.nav button.active{color:#fff!important;font-weight:700;background:transparent!important;box-shadow:inset 0 -2px 0 var(--red)}
+@media(min-width:1000px){.topbar .nav{order:2;width:auto;flex:1;margin:0}.topbar .auth-button{order:3;margin-left:0}}
+.bottom-nav{display:none!important}
+
+/* Estructura */
+main.wrap{width:min(980px,92vw)!important;padding:0 0 56px!important}
+.hero,.hero.private-hero{text-align:left!important;padding:36px 0 18px!important;margin:0!important}
+.hero h1{font-size:clamp(26px,4vw,36px)!important;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.hero p{font-size:15px!important;color:var(--muted)!important;max-width:620px;margin:10px 0 0!important;line-height:1.5}
+.search-box{max-width:none!important;padding:0!important}
+.calendar-panel,.compare-panel,.private-lineup-shell,.create-team-panel,.team-detail,#api .tool-grid{padding:0 0 24px!important}
+.private-page-actions{padding:0 0 14px}
+.private-login-prompt,.private-detail{margin:0 0 16px!important}
+.forgotten-panel{margin:0 0 20px}
+.statusline,.private-state,.calendar-status,.compare-status,.create-team-status{font-size:13px;color:var(--muted)}
+.statusline{margin:10px 2px 16px}
+.ok{color:var(--green)}.bad{color:#ff7a85}.loading{color:var(--gold)}
+.ok .dot{background:var(--green)}.bad .dot{background:var(--red)}.loading .dot{background:var(--gold)}
+.notice,.calendar-route-note{font-size:13px;color:var(--dim);text-align:left;margin:20px 0 0;max-width:none}
+.calendar-route-note{display:none}
+
+/* Búsqueda */
+.searchline{gap:10px!important}
+.searchline input{font-size:16px!important;padding:14px 18px!important;border-radius:12px!important}
+.searchline button{font-size:14px!important;padding:0 24px!important;border-radius:12px!important}
+
+/* Tarjetas y listas */
+.results{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))!important;gap:10px!important}
+.player,.team-card,.best-card{background:var(--s1)!important;border:1px solid var(--ln)!important;border-radius:12px!important;box-shadow:none}
+.player:hover,.team-card:hover,.best-card:hover{background:var(--s2)!important;border-color:#4a4a4a!important}
+.player{min-height:0!important;padding:12px 14px!important;grid-template-columns:48px 1fr auto!important;gap:14px!important}
+.avatar,.team-logo,.best-avatar,.profile-img,.private-player-avatar,.calendar-team-logo{border-radius:10px!important;background:var(--s2)!important}
+.avatar{width:48px!important;height:48px!important}
+.pname{font-size:15px!important;font-weight:700}.pmeta{font-size:13px!important;color:var(--muted)!important}
+.stats{font-size:12px!important;color:var(--muted)}.stats b{font-size:15px!important;color:var(--txt)}
+.gold{color:var(--gold)!important}.green{color:var(--green)!important}
+.current-week-panel,.best-panel{background:var(--s1)!important;border:1px solid var(--ln)!important;border-radius:16px!important;padding:20px!important;margin:20px 0 0!important;max-width:none!important}
+.current-week-kicker{font-size:13px;color:var(--muted);letter-spacing:0}
+.current-week-title,.best-head h2{font-size:20px!important;font-weight:800;letter-spacing:-.02em}
+.current-week-badge{font-size:12px;color:var(--gold);border:1px solid var(--gold);border-radius:999px!important;padding:4px 12px}
+.current-week-meta{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))!important;gap:10px;margin-top:16px}
+.current-week-stat{background:var(--s2);border:1px solid var(--ln);border-radius:10px!important;padding:12px}
+.current-week-stat span{font-size:12px;color:var(--muted);letter-spacing:0}.current-week-stat b{font-size:15px;margin-top:4px}
+.current-week-note,.current-week-state,.best-state{font-size:13px;color:var(--dim)}
+.best-head p{font-size:13px!important;color:var(--muted)!important}
+.best-select{font-size:13px}.best-select select{font-size:13px;padding:8px 12px}
+.best-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))!important;gap:10px!important;margin-top:14px}
+.best-card{min-height:0!important;padding:12px!important;grid-template-columns:28px 56px 1fr!important;gap:12px!important}
+.best-avatar{width:56px!important;height:56px!important}
+.best-rank{font-size:18px!important;color:var(--dim)}
+.best-card:nth-child(1) .best-rank{color:var(--gold)}.best-card:nth-child(2) .best-rank{color:#d4d4d4}.best-card:nth-child(3) .best-rank{color:#cd8b4f}
+.best-name{font-size:15px!important}.best-team{font-size:13px!important;color:var(--muted)!important}
+.best-pill,.chip{font-size:12px!important;padding:3px 10px!important;border-radius:999px!important;background:var(--s2)!important;border:1px solid var(--ln2)!important;color:var(--txt)}
+.best-pill.green{color:var(--green)!important}.best-pill.gold{color:var(--gold)!important}
+
+/* Equipos */
+.team-toolbar{margin:0 0 16px!important;gap:12px!important}
+.teams-grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))!important;gap:10px!important}
+.team-card{min-height:0!important;padding:14px!important;grid-template-columns:48px 1fr!important;gap:14px!important}
+.team-logo{width:48px!important;height:48px!important}
+.team-name{font-size:15px!important}.team-short,.team-count{font-size:13px!important;color:var(--muted)!important}
+.team-sortbar label{font-size:13px;color:var(--muted);letter-spacing:0}.team-sortbar select{font-size:13px}.team-sort-status{font-size:12px;color:var(--dim)}
+
+/* Calendario */
+.calendar-toolbar,.calendar-week-head,.calendar-list{max-width:none!important;margin-left:0!important;margin-right:0!important}
+.calendar-toolbar{margin-bottom:12px!important}
+.calendar-nav button{background:var(--s1);border-color:var(--ln2)}
+.calendar-week-input{width:80px!important;text-align:center;font-weight:700}
+.calendar-current{font-size:13px;color:var(--muted);letter-spacing:0}
+.calendar-week-head{border:0;padding:8px 0 14px}
+.calendar-week-title{font-size:22px}.calendar-week-subtitle{font-size:13px;color:var(--muted)}.calendar-count{font-size:13px;color:var(--muted)}
+.calendar-list{gap:12px;border:0}
+.calendar-day{background:var(--s1);border:1px solid var(--ln);border-radius:14px;overflow:hidden}
+.calendar-day-head{background:var(--s2);padding:12px 16px}
+.calendar-day-name{font-size:14px;color:var(--txt);letter-spacing:0}.calendar-day-date{font-size:13px;color:var(--muted)}
+.calendar-match{padding:14px 16px!important;border-top:1px solid var(--ln);grid-template-columns:70px minmax(0,1fr) 80px!important}
+.calendar-time{font-size:13px}.calendar-time strong{font-size:15px}.calendar-time span{font-size:12px}
+.calendar-team-name{font-size:15px!important}.calendar-team-role{font-size:12px;color:var(--dim);letter-spacing:0}
+.calendar-team-logo{width:34px!important;height:34px!important}
+.calendar-score,.calendar-team-score{font-size:17px!important}
+.calendar-status-pill{font-size:12px;color:var(--muted);letter-spacing:0}
+.calendar-empty,.compare-empty,.private-empty{border:1px dashed var(--ln2);background:transparent;border-radius:14px;color:var(--muted);font-size:14px;padding:32px 16px}
+
+/* Comparador */
+.compare-toolbar,.compare-stage,.compare-summary{max-width:none!important}
+.compare-picker label{font-size:13px;color:var(--muted);letter-spacing:0;margin-bottom:6px}
+.compare-select{background:var(--s1)!important;border:1px solid var(--ln2)!important;font-size:14px!important;padding:12px 14px!important;border-radius:10px!important}
+.compare-suggestions{background:var(--s1);border:1px solid var(--ln2);border-radius:10px;margin-top:4px;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.compare-suggestion{background:var(--s1);border-bottom:1px solid var(--ln);padding:10px 12px}
+.compare-suggestion:hover,.compare-suggestion:focus{background:var(--s2)}
+.compare-suggestion-name{font-size:14px}.compare-suggestion-team{font-size:12px;color:var(--muted)}
+.compare-player{background:var(--s1);border:1px solid var(--ln);border-radius:16px;overflow:hidden}
+.compare-photo{background:var(--s2);border-bottom:1px solid var(--ln)}
+.compare-name{font-size:20px}.compare-team{font-size:13px;color:var(--muted)}
+.compare-vs{font-size:14px;color:var(--dim)}
+.compare-summary{border-top:0}.compare-summary-title{font-size:16px;color:var(--txt);letter-spacing:0}
+.compare-row{border-top:1px solid var(--ln);min-height:64px}
+.compare-value{font-size:24px}.compare-value.better{color:var(--gold)}.compare-value.worse{color:var(--dim)}
+.compare-metric{font-size:13px;color:var(--muted)}.compare-bar{background:var(--ln);border-radius:3px}.compare-bar span{border-radius:3px}
+.compare-note{font-size:12px;color:var(--dim)}
+
+/* Mis ligas */
+.private-muted{font-size:13px;color:var(--muted)}
+.private-login-prompt,.private-detail,.private-league-card,.private-market-balance,.private-lineup-top,.private-lineup-summary{background:var(--s1)!important;border:1px solid var(--ln)!important;border-radius:16px!important;padding:20px;box-shadow:none}
+.private-login-prompt p,.private-panel-intro,.private-lineup-picker-intro{font-size:14px;color:var(--muted);line-height:1.55}
+.private-empty-title{font-size:18px}
+.private-league-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))!important;gap:12px;padding:0}
+.private-league-card{min-height:0;gap:6px}.private-league-card:hover{border-color:#5a5a5a!important;background:var(--s2)!important}
+.private-league-name{font-size:17px}.private-league-meta{font-size:13px;color:var(--muted)}
+.private-detail-heading h2{font-size:22px}
+.private-tabs{gap:6px;border:0;padding-bottom:4px;margin-bottom:16px}
+.private-tabs button{font-size:14px;padding:9px 16px;border-radius:999px!important;background:transparent;border-color:var(--ln2);color:var(--muted)}
+.private-tabs button.active{background:var(--red);border-color:var(--red);color:#fff}
+.private-table-wrap{border:1px solid var(--ln);border-radius:12px;background:var(--s1)}
+.private-table{font-size:14px}.private-table th{font-size:12px;color:var(--muted);background:var(--s2);letter-spacing:0}
+.private-table th,.private-table td{padding:12px 14px;border-bottom:1px solid var(--ln)}
+.private-team-list{gap:8px}
+.private-team-card,.private-player-open,.private-player-row,.private-market-row,.private-activity-row,.private-market-listing,.private-roster-entry{background:var(--s1)!important;border:1px solid var(--ln);border-radius:12px!important;margin-bottom:8px}
+.private-team-card{padding:14px}.private-team-card b{font-size:14px}.private-team-card span{font-size:13px}
+.private-team-card:hover,.private-player-open:hover{background:var(--s2)!important;border-color:#4a4a4a}
+.private-market-listing,.private-roster-entry{padding:0 4px}.private-market-listing .private-player-open,.private-roster-entry .private-player-open{border:0;margin:0;background:transparent!important}
+.private-player-open{padding:12px 14px}
+.private-player-name,.private-market-name{font-size:14px}.private-player-meta,.private-market-meta,.private-activity-meta,.private-player-side small{font-size:12px;color:var(--muted)}
+.private-player-side strong,.private-player-value,.private-market-price{font-size:14px;color:var(--gold)}
+.private-market-action,.private-action-button{font-size:12px!important;padding:9px 14px!important;border-radius:10px!important}
+.private-market-balance{margin:8px 0 16px}.private-market-balance strong{font-size:28px;color:var(--gold)}
+.private-market-balance-label,.private-market-balance-state{font-size:13px;color:var(--muted);letter-spacing:0}
+.private-daily-reward{background:#161300!important;border:1px solid #5c4b00!important;border-radius:14px!important;padding:16px 18px}
+.private-daily-reward-copy strong{font-size:15px}.private-daily-reward-copy span{font-size:13px;color:#cdbf7e}
+.private-daily-reward-button{font-size:13px!important;border-radius:10px!important;box-shadow:none!important}
+.private-warning{font-size:13px;border-radius:10px}
+
+/* Mi alineación */
+.private-lineup-toolbar label,.private-lineup-top label,.private-standing-toolbar label{font-size:13px;color:var(--muted)}
+.private-lineup-label{font-size:13px;color:var(--muted);letter-spacing:0}.private-lineup-top strong{font-size:18px}
+.private-lineup-pitch{background:#14341f!important;background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 12.5%,transparent 12.5% 25%)!important;border:1px solid #2f6b44!important;border-radius:16px!important;box-shadow:none!important;min-height:640px}
+.private-pitch-label{font-size:12px;letter-spacing:0;color:rgba(255,255,255,.6)}
+.private-lineup-slot{background:var(--s1)!important;border:1px solid var(--ln2)!important;border-bottom:3px solid #555!important;border-radius:10px!important;box-shadow:none!important}
+.private-lineup-slot.is-filled{border-bottom-color:var(--gold)!important}
+.private-lineup-slot.is-empty{background:rgba(10,10,10,.45)!important;border:1px dashed rgba(255,255,255,.5)!important}
+.private-lineup-slot:hover{border-color:#fff!important}
+.private-slot-name{font-size:12px}.private-slot-position{font-size:11px;letter-spacing:0;color:var(--muted)}.private-slot-hint{font-size:11px}
+.private-lineup-bench{background:var(--s1)!important;color:var(--txt)!important;border:1px solid var(--ln)!important;border-radius:16px;box-shadow:none!important;overflow:hidden;padding-bottom:6px}
+.private-lineup-bench-head{font-size:15px;letter-spacing:0;border-bottom:1px solid var(--ln)!important;padding:14px 16px}
+.private-lineup-bench-count{font-size:13px;color:var(--muted)}
+.private-lineup-bench-list{gap:8px;padding:12px}
+.private-lineup-bench-card{background:var(--s2)!important;color:var(--txt)!important;border:1px solid var(--ln)!important;border-radius:12px!important;flex-basis:132px}
+.private-lineup-bench-card:hover{background:#202020!important}
+.private-lineup-bench-position{font-size:12px;color:var(--gold)}.private-lineup-bench-name{font-size:13px}.private-lineup-bench-club{font-size:12px;color:var(--muted)}
+.private-lineup-bench-action{font-size:12px;color:var(--muted)}
+.lineup-drag-help,.private-lineup-footnote{font-size:13px;color:var(--dim);line-height:1.5;padding:0 4px}
+.private-lineup-summary{font-size:13px;color:var(--muted);padding:14px 16px}
+.private-lineup-actions{gap:10px}
+.private-lineup-picker-choice{background:var(--s1);border:1px solid var(--ln);border-radius:12px}
+.private-lineup-picker-choice:hover{background:var(--s2);border-color:#4a4a4a}
+.private-lineup-picker-name{font-size:14px}.private-lineup-picker-meta{font-size:12px}.private-lineup-picker-action{font-size:12px;color:var(--gold);letter-spacing:0}
+
+/* Olvidados y API */
+.forgotten-team{background:var(--s1);border:1px solid var(--ln);border-radius:14px;margin-bottom:10px;overflow:hidden}
+.forgotten-team-head{background:var(--s2);padding:14px 16px}.forgotten-team-name{font-size:15px}.forgotten-team-count{font-size:13px;color:var(--muted)}
+.forgotten-player{background:var(--s1);border-top:1px solid var(--ln);padding:12px 16px}
+.forgotten-player .pname{font-size:14px}.forgotten-player .pmeta{font-size:12px}.forgotten-status{font-size:12px;color:#ff7a85;letter-spacing:0}
+#api .tool-grid{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))!important;gap:12px!important}
+.api-card{min-height:0!important;background:var(--s1)!important;border:1px solid var(--ln)!important;border-radius:14px!important}
+.api-head{padding:14px 16px;border-bottom:1px solid var(--ln)}.api-name{font-size:15px}.api-desc{font-size:13px;color:var(--muted)}.api-body{padding:14px 16px}
+.api-route{font-size:12px!important;background:var(--bg)!important;border:1px solid var(--ln)!important;border-radius:8px!important}
+pre{font-size:12px;background:var(--bg)}
+
+/* Ventanas (ficha de jugador e inicio de sesión) */
+.modal{background:rgba(0,0,0,.78)!important;backdrop-filter:blur(3px)}
+.dialog{background:var(--s1)!important;border:1px solid var(--ln2)!important;border-radius:18px!important;box-shadow:0 24px 80px rgba(0,0,0,.7)!important}
+.dialog-head{padding:18px 20px}.dialog-head .api-name{font-size:17px}.subtle{font-size:13px;color:var(--muted)!important}
+.close{font-size:26px;border:0!important;background:transparent!important;color:var(--muted);padding:0 6px!important}.close:hover{color:#fff}
+.profile{padding:18px 20px;grid-template-columns:96px 1fr}.profile-img{width:96px!important;height:96px!important}
+.profile h2{font-size:24px}.profile .team{font-size:14px;color:var(--muted)}
+.highlight{padding:0 20px 14px;gap:10px}
+.highlight>div,.week-stat,.media-card,.kv{background:var(--s2)!important;border:1px solid var(--ln)!important;border-radius:12px!important}
+.highlight span{font-size:12px;color:var(--muted)}.highlight b{font-size:18px}
+.modal-tabs{padding:0 20px 12px;gap:8px}.modal-tabs button{font-size:13px;padding:8px 14px;border-radius:999px!important}
+.modal-tabs .active{background:var(--red);border-color:var(--red);color:#fff}
+.modal-body{padding:0 20px 20px}
+.kv>div{font-size:13px;background:var(--s1)!important;padding:9px 12px}.key{color:var(--gold)}
+.media-card div{font-size:12px}
+.week-btn{border-radius:8px!important;background:var(--s2)!important;border-color:var(--ln)!important}.week-btn.selected{background:var(--red)!important;border-color:var(--red)!important}
+.auth-box{padding:20px}.auth-box h2{font-size:22px}.auth-box p{font-size:14px;color:var(--muted)}
+.google-login{border-radius:10px!important;padding:13px;font-size:15px}
+.google-step{font-size:13px;background:var(--s2);border:1px solid var(--ln);border-radius:10px!important;padding:12px 14px;color:var(--muted);line-height:1.5}.google-step b{color:var(--gold)}
+.google-flow input{font-size:13px}
+.auth-note{font-size:13px;color:var(--dim);line-height:1.5}
+.auth-state{font-size:13px;border-radius:10px!important}
+.auth-state.show{background:var(--s2);border:1px solid var(--ln2)}
+
+/* Móvil */
+@media(max-width:699px){
+  .topbar .wrap{width:calc(100% - 32px)!important}
+  main.wrap{width:calc(100% - 32px)!important;padding-bottom:40px!important}
+  .hero,.hero.private-hero{padding:24px 0 14px!important}
+  .searchline{flex-direction:column}.searchline button{padding:13px!important}
+  .results,.best-grid,.private-league-grid,#api .tool-grid{grid-template-columns:1fr!important}
+  .teams-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .team-card{grid-template-columns:1fr!important;justify-items:start;gap:10px!important}
+  .current-week-panel,.best-panel,.private-detail,.private-login-prompt{padding:16px!important}
+  .calendar-match{grid-template-columns:56px minmax(0,1fr) 64px!important;padding:12px!important}
+  .private-team-list{grid-template-columns:1fr}
+  .private-lineup-pitch{min-height:580px}
+  .profile{grid-template-columns:72px 1fr}.profile-img{width:72px!important;height:72px!important}
+  .dialog{border-radius:16px!important}
+}
+
+/* ===== Capa 2: tipografía suave, estilo cuadriculado y transiciones ===== */
+:root{--r:3px;--s1:#141414;--s2:#1b1b1b;--s3:#232323;--ln:#222;--ease:cubic-bezier(.2,.7,.2,1);--f-text:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;--f-head:"Manrope","IBM Plex Sans","Segoe UI",system-ui,sans-serif}
+html{scroll-behavior:smooth}
+html,body{font-family:var(--f-text);font-size:15px;font-weight:400;font-variant-numeric:tabular-nums}
+h1,h2,h3,.mobile-brand,.pname,.best-name,.team-name,.private-league-name,.compare-name,.api-name,.current-week-title,.calendar-week-title,.calendar-team-name,.stats b,.best-rank,.compare-value,.calendar-score,.calendar-team-score,.private-market-balance strong,.profile h2,.highlight b,.private-detail-heading h2{font-family:var(--f-head);letter-spacing:-.01em}
+.hero h1{font-weight:700;letter-spacing:-.025em}
+.pname,.best-name,.team-name,.private-league-name{font-weight:600}
+.pmeta,.hero p,.best-team,.team-short,.team-count,.private-league-meta{font-weight:400}
+
+/* Esquinas cuadradas: un único radio pequeño en todo */
+html [class][class][class]:not(.dot):not(.brand-dot):not([class*="fallback"]):not(.google-mark),button,input,select{border-radius:var(--r)!important}
+.dot,.brand-dot{border-radius:50%!important}
+.hero h1::after{content:"";display:block;width:44px;height:3px;background:var(--red);margin-top:14px;transform-origin:left;animation:barIn .7s .12s var(--ease) both}
+
+/* Menos contornos: superficies rellenas separadas por líneas finas de fondo */
+.player,.team-card,.best-card,.private-league-card,.private-team-card,.private-player-open,.private-market-listing,.private-roster-entry,.api-card,.calendar-day,.forgotten-team,.current-week-panel,.best-panel,.private-detail,.private-login-prompt,.compare-player,.private-market-balance,.private-lineup-top,.private-lineup-summary,.private-lineup-bench,.private-table-wrap,.highlight>div,.current-week-stat,.kv{border-color:transparent!important;background-color:var(--s1)}
+.player,.team-card,.best-card{background:var(--s1)!important}
+.results,.teams-grid,.best-grid,.private-league-grid,#api .tool-grid,.private-team-list,.calendar-list{gap:2px!important}
+.private-team-card,.private-market-listing,.private-roster-entry,.private-player-open,.forgotten-team{margin-bottom:2px!important}
+.current-week-panel,.best-panel,.private-detail,.private-login-prompt{padding:24px!important}
+.best-grid,.current-week-meta{margin-top:18px}
+.current-week-meta{gap:2px}
+.current-week-stat{background:var(--s2)}
+.private-table th{background:var(--s2)}.private-table th,.private-table td{border-bottom:1px solid var(--ln)}
+.calendar-match{border-top:1px solid var(--ln)}
+.compare-row{border-top:1px solid var(--ln)}
+.dialog{border:1px solid #2a2a2a!important;background:var(--s1)!important}
+
+/* Campos y botones: rellenos con línea inferior */
+input,select{background:var(--s2);border:0!important;border-bottom:2px solid #3a3a3a!important}
+input:focus,select:focus{border-bottom-color:var(--gold)!important;box-shadow:none!important;background:var(--s3)}
+.compare-select{border:0!important;border-bottom:2px solid #3a3a3a!important;background:var(--s2)!important}
+button{background:var(--s2);border-color:transparent}
+button:hover{background:var(--s3);border-color:transparent}
+button:active{transform:translateY(1px)}
+.primary,.searchline button,.compare-action{transition:background .2s,box-shadow .2s,transform .1s}
+.primary:hover,.searchline button:hover,.compare-action:hover{box-shadow:0 6px 18px rgba(229,9,20,.28)}
+.topbar .auth-button{border:1px solid var(--ln2)!important;background:transparent!important}
+.topbar .auth-button:hover{background:var(--s2)!important}
+
+/* Navegación y pestañas con subrayado que se desliza */
+.topbar{border-bottom:1px solid var(--ln)}
+.nav button,.private-tabs button,.modal-tabs button{position:relative;border:0!important;border-radius:0!important;background:transparent!important;color:var(--muted)!important;box-shadow:none!important}
+.nav button::after,.private-tabs button::after,.modal-tabs button::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--red);transform:scaleX(0);transform-origin:left;transition:transform .3s var(--ease)}
+.nav button:hover::after,.private-tabs button:hover::after,.modal-tabs button:hover::after{transform:scaleX(.35)}
+.nav button.active::after,.private-tabs button.active::after,.modal-tabs .active::after{transform:scaleX(1)}
+.nav button.active,.private-tabs button.active,.modal-tabs .active{color:#fff!important;background:transparent!important}
+.private-tabs{border-bottom:1px solid var(--ln);gap:0;padding-bottom:0;margin-bottom:20px}
+.private-tabs button{padding:12px 18px}
+.modal-tabs .active{background:transparent!important}
+.week-btn.selected{box-shadow:inset 0 -2px 0 var(--red)}
+
+/* Efectos al pasar el cursor sobre fichas */
+.player,.team-card,.best-card,.private-league-card,.private-team-card,.private-player-open,.api-card,.calendar-match,.forgotten-player{transition:background .25s var(--ease),box-shadow .25s var(--ease),transform .25s var(--ease)}
+.player,.team-card,.best-card,.private-league-card,.private-team-card,.api-card{box-shadow:inset 0 0 0 transparent}
+.player:hover,.team-card:hover,.best-card:hover,.private-league-card:hover,.private-team-card:hover,.private-player-open:hover,.api-card:hover{background:var(--s2)!important;box-shadow:inset 3px 0 0 var(--red)!important}
+.calendar-match:hover,.forgotten-player:hover{background:var(--s2)}
+.avatar,.team-logo,.best-avatar,.calendar-team-logo,.private-player-avatar{transition:transform .3s var(--ease)}
+.player:hover .avatar,.team-card:hover .team-logo,.best-card:hover .best-avatar,.private-player-open:hover .private-player-avatar{transform:scale(1.08)}
+.private-lineup-slot{transition:transform .2s var(--ease),border-color .2s,background .2s}
+.private-lineup-slot:hover{transform:translateY(-3px)}
+.compare-bar span{transform-origin:left;animation:grow .9s .1s var(--ease) both}
+
+/* Transiciones entre apartados, subapartados y ventanas */
+.section.active{animation:secIn .5s var(--ease) both}
+.private-panel:not(.hidden),#teamDetail:not(.hidden),#myLeagueDetail:not(.hidden),#myLeagueRoster:not(.hidden),#googleFlow:not(.hidden),#myLeaguesContent:not(.hidden),#compareOutput>*,#calendarOutput>*{animation:secIn .4s var(--ease) both}
+.modal:not(.hidden){animation:fadeIn .22s ease both}
+.modal:not(.hidden) .dialog{animation:pop .32s var(--ease) both}
+.best-grid>*,.teams-grid>*,.private-league-grid>*,.private-team-list>*,.calendar-list>*,#api .tool-grid>*,.forgotten-team,.current-week-panel,.best-panel{animation:tileIn .5s var(--ease) both}
+:is(.best-grid,.teams-grid,.private-league-grid,.private-team-list,.calendar-list,#api .tool-grid)>:nth-child(2){animation-delay:.05s}
+:is(.best-grid,.teams-grid,.private-league-grid,.private-team-list,.calendar-list,#api .tool-grid)>:nth-child(3){animation-delay:.1s}
+:is(.best-grid,.teams-grid,.private-league-grid,.private-team-list,.calendar-list,#api .tool-grid)>:nth-child(4){animation-delay:.15s}
+:is(.best-grid,.teams-grid,.private-league-grid,.private-team-list,.calendar-list,#api .tool-grid)>:nth-child(5){animation-delay:.2s}
+:is(.best-grid,.teams-grid,.private-league-grid,.private-team-list,.calendar-list,#api .tool-grid)>:nth-child(6){animation-delay:.25s}
+:is(.best-grid,.teams-grid,.private-league-grid,.private-team-list,.calendar-list,#api .tool-grid)>:nth-child(n+7){animation-delay:.3s}
+.best-panel{animation-delay:.08s}
+@keyframes secIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes tileIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes barIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+@media(max-width:699px){
+  .nav button::after{left:10px;right:10px}
+  .current-week-panel,.best-panel,.private-detail,.private-login-prompt{padding:18px!important}
+}
 </style>
 </head>
 <body>
 <div class="app-shell">
 <header class="topbar">
   <div class="wrap">
-    <div class="mobile-brand"><span class="hamb">☰</span><span>LALIGA<span style="color:#ff3d45">Fantasy</span></span></div>
-    <nav class="nav">
+    <div class="mobile-brand"><span class="brand-dot"></span><span>LALIGA <span class="brand-accent">Fantasy</span></span></div>
+    <button id="authButton" class="auth-button">Iniciar sesión</button>
+    <nav class="nav" aria-label="Secciones">
       <button class="active" data-section="home">Inicio</button>
       <button data-section="teams">Equipos</button>
       <button data-section="my-leagues">Mis Ligas</button>
@@ -620,7 +934,6 @@ main.wrap{padding-bottom:96px!important}
       <button data-section="forgotten">Olvidados</button>
       <button data-section="compare">Comparador</button>
       <button data-section="api">Explorador API</button>
-      <button id="authButton" class="auth-button">Iniciar sesión</button>
     </nav>
   </div>
 </header>
@@ -667,7 +980,7 @@ main.wrap{padding-bottom:96px!important}
         <div id="bestState" class="best-state">Esperando datos…</div>
         <div id="bestResults" class="best-grid"></div>
       </section>
-      <div class="notice">Pulsa un resultado para abrir su ficha completa. Los datos se consultan desde <code>/v1/competition/1/players</code> y la ficha individual desde <code>/v1/competition/1/player/{id}</code>.</div>
+      <div class="notice">Pulsa un jugador para abrir su ficha completa.</div>
     </div>
   </section>
 
@@ -732,26 +1045,12 @@ main.wrap{padding-bottom:96px!important}
         </div>
         <div id="myLeagueTabs" class="private-tabs">
           <button type="button" data-private-tab="standing" class="active">Clasificación</button>
-          <button type="button" data-private-tab="clauses">Analizador de Cláusulas</button>
           <button type="button" data-private-tab="teams">Equipos y plantillas</button>
           <button type="button" data-private-tab="market">Mercado</button>
           <button type="button" data-private-tab="activity">Movimientos</button>
         </div>
         <div id="myLeaguePanelState" class="private-state" aria-live="polite"></div>
         <div id="myStandingPanel" class="private-panel"></div>
-        <div id="myClausesPanel" class="private-panel hidden">
-          <div class="private-panel-intro">Compara las cláusulas de los jugadores de todos los equipos de esta liga. El bloqueo temporal se consulta en LALIGA cuando hay un identificador de ficha disponible; si la API no confirma el estado, aparecerá como no disponible.</div>
-          <div class="private-clause-toolbar">
-            <label for="privateClauseSort">Orden de cláusula</label>
-            <select id="privateClauseSort">
-              <option value="desc">Mayor a menor</option>
-              <option value="asc">Menor a mayor</option>
-            </select>
-            <button type="button" id="privateClauseRefresh">Actualizar análisis</button>
-          </div>
-          <div id="privateClauseStatus" class="private-clause-status" aria-live="polite">Abre esta pestaña para analizar las cláusulas de la liga.</div>
-          <div id="privateClauseResults"></div>
-        </div>
         <div id="myTeamsPanel" class="private-panel hidden">
           <div class="private-panel-intro">Selecciona un manager para abrir su plantilla. El endpoint de plantillas está verificado con cuenta real según el documento técnico.</div>
           <div id="myLeagueTeamList" class="private-team-list"></div>
@@ -2166,8 +2465,6 @@ let selectedPrivateRosterTeam=null;
 let selectedPrivateRosterPlayers=[];
 let selectedPrivateBalance=null;
 let selectedPrivateOwnTeamId=null;
-let privateClauseRows=[];
-let privateClauseLoadSequence=0;
 
 function privateCollection(value,keys,depth=0){
   if(Array.isArray(value))return value;
@@ -2345,9 +2642,8 @@ let selectedPrivateDailyRewardState=null;
 
 function privateFindDailyRewardRedeemed(node,depth=0){
   if(!node||typeof node!=="object"||depth>7)return {found:false,value:null};
-  const rewardKeys=["dailyRewardsRedeemed","dailyRewardRedeemed","dailyRewardClaimed","dailyRewardsClaimed","rewardRedeemed","rewardClaimed"];
-  for(const key of rewardKeys){
-    if(Object.prototype.hasOwnProperty.call(node,key))return {found:true,value:node[key]};
+  if(Object.prototype.hasOwnProperty.call(node,"dailyRewardsRedeemed")){
+    return {found:true,value:node.dailyRewardsRedeemed};
   }
   if(Array.isArray(node)){
     for(const item of node){const found=privateFindDailyRewardRedeemed(item,depth+1);if(found.found)return found;}
@@ -2389,12 +2685,6 @@ function privateRenderDailyReward(state){
     status.textContent="Consultando si puedes recoger las monedas de hoy.";
     return;
   }
-  if(state.error){
-    button.disabled=false;
-    button.textContent="Reintentar comprobación";
-    status.textContent=state.error+" Puedes volver a consultar el estado.";
-    return;
-  }
   if(state.redeemed){
     button.disabled=true;
     button.textContent="Recogidas hoy ✓";
@@ -2433,7 +2723,6 @@ async function refreshPrivateDailyRewardStatus(){
     const response=await privateApi(path,true);
     const parsed=privateFindDailyRewardRedeemed(response);
     if(!parsed.found)throw Error("La respuesta no indica si la recompensa ya se ha recogido.");
-    if(!selectedPrivateLeague||String(privateLeagueId(selectedPrivateLeague))!==String(leagueId))return;
     privateRenderDailyReward({
       leagueId:String(leagueId),
       teamId:String(teamId),
@@ -2441,29 +2730,18 @@ async function refreshPrivateDailyRewardStatus(){
       officialOpened:oldState?.leagueId===String(leagueId)&&oldState?.officialOpened===true
     });
   }catch(error){
-    if(!selectedPrivateLeague||String(privateLeagueId(selectedPrivateLeague))!==String(leagueId))return;
-    privateRenderDailyReward({
-      leagueId:String(leagueId),
-      teamId:selectedPrivateOwnTeamId?String(selectedPrivateOwnTeamId):null,
-      redeemed:false,
-      officialOpened:oldState?.leagueId===String(leagueId)&&oldState?.officialOpened===true,
-      error:error?.message||"No se pudo comprobar la recompensa."
-    });
+    privateRenderDailyReward(null);
+    status.textContent=(error?.message||"No se pudo comprobar la recompensa.")+" Puedes reintentarlo más tarde.";
   }
 }
 function handlePrivateDailyRewardClick(){
   const state=selectedPrivateDailyRewardState;
-  if(!selectedPrivateLeague||!state||state.redeemed||state.loading)return;
-  // Reintentar siempre consulta el estado de nuevo; el botón no debe abrir de nuevo la web oficial.
-  if(state.error||state.officialOpened){
-    refreshPrivateDailyRewardStatus();
-    return;
-  }
+  if(!selectedPrivateLeague||!state||state.redeemed)return;
   // La API exige una prueba real generada por el SDK de anuncio recompensado.
   window.open("https://fantasy.laliga.com/","_blank","noopener,noreferrer");
   privateRenderDailyReward(Object.assign({},state,{officialOpened:true}));
   const status=$("privateDailyRewardStatus");
-  if(status)status.textContent="Abre LALIGA Fantasy, completa allí la recompensa si está disponible y vuelve aquí. Después pulsa «Comprobar monedas» para consultar el estado. Esta web no puede generar por sí sola la prueba del anuncio.";
+  if(status)status.textContent="Completa el anuncio recompensado en LALIGA Fantasy y vuelve aquí para comprobar la recompensa. Esta web aún no puede generar la prueba de anuncio necesaria.";
 }
 
 function privateExtractMoney(data){
@@ -2686,8 +2964,6 @@ async function openPrivateLeague(league){
   selectedPrivateBalance=null;
   selectedPrivateStanding=[];
   selectedPrivateRosterTeam=null;
-  privateClauseRows=[];
-  privateClauseLoadSequence++;
   $("myLeagueCards").classList.add("hidden");
   $("myLeagueDetail").classList.remove("hidden");
   $("myLeagueName").textContent=privateLeagueName(league);
@@ -2705,8 +2981,6 @@ function closePrivateLeague(){
   selectedPrivateBalance=null;
   selectedPrivateStanding=[];
   selectedPrivateRosterTeam=null;
-  privateClauseRows=[];
-  privateClauseLoadSequence++;
   $("myLeagueDetail").classList.add("hidden");
   $("myLeagueCards").classList.remove("hidden");
   privateSetPanelState("");
@@ -2715,7 +2989,7 @@ async function switchPrivateLeagueTab(tab){
   if(!selectedPrivateLeague)return;
   selectedPrivateLeagueTab=tab;
   document.querySelectorAll("[data-private-tab]").forEach(b=>b.classList.toggle("active",b.dataset.privateTab===tab));
-  const panels={standing:"myStandingPanel",clauses:"myClausesPanel",teams:"myTeamsPanel",market:"myMarketPanel",activity:"myActivityPanel"};
+  const panels={standing:"myStandingPanel",teams:"myTeamsPanel",market:"myMarketPanel",activity:"myActivityPanel"};
   Object.entries(panels).forEach(([key,id])=>$(id).classList.toggle("hidden",key!==tab));
   privateSetPanelState("");
   try{
@@ -2727,8 +3001,6 @@ async function switchPrivateLeagueTab(tab){
       selectedPrivateStanding=privateRows(data,"standing");
       renderPrivateStanding(selectedPrivateStanding);
       privateSetPanelState(selectedPrivateStanding.length?"Clasificación cargada.":"La API no devolvió filas de clasificación.",selectedPrivateStanding.length?"good":"");
-    }else if(tab==="clauses"){
-      await loadPrivateClauseAnalyzer(false);
     }else if(tab==="teams"){
       if(!selectedPrivateStanding.length){
         privateSetPanelState("Cargando los equipos de la liga…");
@@ -2782,126 +3054,6 @@ async function switchPrivateLeagueTab(tab){
     if(host)host.innerHTML='<div class="private-empty">'+esc(msg)+'</div>';
   }
 }
-function privateClauseNumeric(value){
-  if(value===null||value===undefined||value==="")return null;
-  if(typeof value==="number")return Number.isFinite(value)?value:null;
-  const raw=String(value).trim().replace(/[€\s]/g,"");
-  if(!raw)return null;
-  const normalized=/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(raw)
-    ?raw.replace(/\./g,"").replace(",",".")
-    :raw.replace(/,/g,".");
-  const parsed=Number(normalized.replace(/[^\d.-]/g,""));
-  return Number.isFinite(parsed)?parsed:null;
-}
-function privateSetClauseStatus(message,tone=""){
-  const el=$("privateClauseStatus");
-  if(!el)return;
-  el.className="private-clause-status"+(tone?" "+tone:"");
-  el.textContent=message||"";
-}
-function renderPrivateClauseAnalyzer(){
-  const host=$("privateClauseResults"),sort=$("privateClauseSort");
-  if(!host||!sort)return;
-  if(!privateClauseRows.length){
-    host.innerHTML='<div class="private-empty">Todavía no hay cláusulas para mostrar. Pulsa «Actualizar análisis» para volver a consultar los equipos de esta liga.</div>';
-    return;
-  }
-  const direction=sort.value==="asc"?"asc":"desc";
-  const ordered=privateClauseRows.slice().sort((a,b)=>{
-    const av=a.clauseNumber,bv=b.clauseNumber;
-    if(av===null&&bv===null)return a.info.name.localeCompare(b.info.name,"es");
-    if(av===null)return 1;
-    if(bv===null)return -1;
-    if(av!==bv)return direction==="asc"?av-bv:bv-av;
-    return a.info.name.localeCompare(b.info.name,"es");
-  });
-  const clauseCount=ordered.filter(row=>row.clauseNumber!==null).length;
-  const blocked=ordered.filter(row=>row.shield?.known&&row.shield.blocked).length;
-  const unblocked=ordered.filter(row=>row.shield?.known&&!row.shield.blocked).length;
-  const unknown=ordered.length-blocked-unblocked;
-  const summary='<div class="private-clause-summary"><span>'+ordered.length+' jugadores</span><span>'+clauseCount+' con cláusula legible</span><span>'+blocked+' bloqueados</span><span>'+unblocked+' sin bloqueo</span><span>'+unknown+' sin estado confirmado</span></div>';
-  const rows=ordered.map((row,index)=>{
-    const clause=row.clauseNumber===null?"No disponible":privateMoney(row.clauseNumber);
-    const price=row.info.price===null?"—":privateMoney(row.info.price);
-    const shield=row.shield||{known:false,label:"No disponible"};
-    const klass=!shield.known?"unknown":shield.blocked?"blocked":"clear";
-    const label=shield.label||"No disponible";
-    return '<tr><td class="numeric">'+(index+1)+'</td><td><button type="button" class="private-clause-player" data-private-clause-index="'+row.index+'">'+esc(row.info.name)+'</button></td><td>'+esc(row.managerName)+'</td><td class="numeric">'+esc(price)+'</td><td class="numeric">'+esc(clause)+'</td><td><span class="private-clause-lock '+klass+'">'+esc(label)+'</span></td></tr>';
-  }).join("");
-  host.innerHTML=summary+'<div class="private-table-wrap"><table class="private-table" style="min-width:760px"><thead><tr><th>#</th><th>Jugador</th><th>Manager / equipo</th><th class="numeric">Valor</th><th class="numeric">Cláusula</th><th>Bloqueo temporal</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-  host.querySelectorAll("[data-private-clause-index]").forEach(button=>button.addEventListener("click",()=>{
-    const row=privateClauseRows.find(item=>item.index===Number(button.dataset.privateClauseIndex));
-    if(row)openPrivatePlayer(row.entry);
-  }));
-}
-async function loadPrivateClauseAnalyzer(force=false){
-  const host=$("privateClauseResults"),refresh=$("privateClauseRefresh");
-  const league=selectedPrivateLeague,leagueId=privateLeagueId(league);
-  if(!host||!leagueId)return;
-  const sequence=++privateClauseLoadSequence;
-  if(refresh)refresh.disabled=true;
-  privateSetClauseStatus("Cargando los equipos y sus plantillas…");
-  host.innerHTML='<div class="private-loading">Consultando las plantillas de esta liga…</div>';
-  const collected=[];
-  let teamErrors=0;
-  try{
-    let teams=selectedPrivateStanding.slice();
-    if(!teams.length){
-      const standing=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/standing",force);
-      teams=privateRows(standing,"standing");
-      if(String(privateLeagueId(selectedPrivateLeague))!==String(leagueId)||sequence!==privateClauseLoadSequence)return;
-      selectedPrivateStanding=teams;
-    }
-    if(!teams.length)throw Error("No se encontró la clasificación de esta liga; no hay equipos que analizar.");
-    const teamJobs=teams.map(row=>({row,teamId:privateId(row,"team"),managerName:privateText(privateField(row,["managerName","teamName","name","nickname","displayName","username","manager"]),"Equipo") }));
-    for(let start=0;start<teamJobs.length;start+=5){
-      const batch=teamJobs.slice(start,start+5);
-      await Promise.all(batch.map(async job=>{
-        if(job.teamId===null){teamErrors++;return;}
-        try{
-          const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/teams/"+encodeURIComponent(job.teamId),force);
-          const roster=privateRows(data,"roster");
-          roster.forEach(entry=>{
-            const info=privatePlayerInfo(entry);
-            const playerTeamId=privateDirectField(entry,["playerTeamId","player_team_id"])??privateDirectField(entry?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(entry?.playerTeamData,["playerTeamId","player_team_id","id"]);
-            collected.push({entry,info,managerName:job.managerName,teamId:String(job.teamId),playerTeamId:playerTeamId===null?null:String(playerTeamId),clauseNumber:privateClauseNumeric(info.clause),shield:{known:false,blocked:false,label:"No disponible"},index:collected.length});
-          });
-          if(!roster.length)teamErrors++;
-        }catch{teamErrors++;}
-      }));
-      if(String(privateLeagueId(selectedPrivateLeague))!==String(leagueId)||sequence!==privateClauseLoadSequence)return;
-      privateSetClauseStatus("Plantillas consultadas: "+Math.min(start+batch.length,teamJobs.length)+" de "+teamJobs.length+" equipos…");
-    }
-    if(!collected.length)throw Error("No se pudo obtener ninguna plantilla de esta liga. Comprueba tu sesión o el acceso de la API.");
-    privateSetClauseStatus("Cláusulas cargadas. Comprobando el bloqueo temporal de "+collected.filter(row=>row.playerTeamId!==null).length+" fichas…");
-    const shieldJobs=collected.filter(row=>row.playerTeamId!==null);
-    for(let start=0;start<shieldJobs.length;start+=6){
-      const batch=shieldJobs.slice(start,start+6);
-      await Promise.all(batch.map(async row=>{
-        try{
-          const response=await privateApi(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/player-team/"+encodeURIComponent(row.playerTeamId)+"/check-shield",force);
-          row.shield=privateShieldStatusFromResponse(response);
-        }catch{row.shield={known:false,blocked:false,label:"No disponible"};}
-      }));
-      if(String(privateLeagueId(selectedPrivateLeague))!==String(leagueId)||sequence!==privateClauseLoadSequence)return;
-      privateSetClauseStatus("Estado temporal consultado: "+Math.min(start+batch.length,shieldJobs.length)+" de "+shieldJobs.length+" fichas…");
-    }
-    privateClauseRows=collected.map((row,index)=>({...row,index}));
-    renderPrivateClauseAnalyzer();
-    const clauseCount=collected.filter(row=>row.clauseNumber!==null).length;
-    const locked=collected.filter(row=>row.shield?.known&&row.shield.blocked).length;
-    const known=collected.filter(row=>row.shield?.known).length;
-    const note=teamErrors?" · "+teamErrors+" equipos/plantillas sin datos completos":"";
-    privateSetClauseStatus("Análisis completado: "+collected.length+" jugadores, "+clauseCount+" cláusulas legibles y "+locked+" bloqueos temporales confirmados (estado consultado en "+known+" jugadores)."+note,"good");
-  }catch(error){
-    if(sequence!==privateClauseLoadSequence)return;
-    host.innerHTML='<div class="private-empty">'+esc(error?.message||"No se pudo completar el análisis de cláusulas.")+'</div>';
-    privateSetClauseStatus(error?.message||"No se pudo completar el análisis de cláusulas.","error");
-  }finally{
-    if(sequence===privateClauseLoadSequence&&refresh)refresh.disabled=false;
-  }
-}
-
 function renderPrivateStanding(rows){
   const host=$("myStandingPanel");
   if(!rows.length){host.innerHTML='<div class="private-empty">No hay filas para mostrar.</div>';return}
@@ -2979,7 +3131,7 @@ async function loadPrivateRoster(teamId,teamName,force=false){
     host.querySelectorAll("[data-private-buyout-index]").forEach(button=>button.addEventListener("click",()=>payPrivateBuyout(rosterPlayers[Number(button.dataset.privateBuyoutIndex)],button)));
     const lineupButton=host.querySelector("[data-load-lineup]");
     if(lineupButton)lineupButton.addEventListener("click",()=>loadPrivateLineup(teamId,teamName,lineupButton,rosterPlayers));
-    enrichPrivateRosterShields(rosterPlayers,leagueId,String(teamId));
+    if(!isOwnRoster)enrichPrivateRosterShields(rosterPlayers,leagueId);
   }catch(error){
     host.innerHTML='<div class="private-empty">'+esc(error?.message||"No se pudo cargar la plantilla.")+'</div>';
   }
@@ -3003,51 +3155,17 @@ function privateShieldDescription(data){
   };
   return visit(data,0);
 }
-function privateShieldStatusFromResponse(data){
-  const description=privateShieldDescription(data);
-  if(description)return {known:true,blocked:true,label:description.replace(/^Cláusula bloqueada/i,"Bloqueado")};
-  const activeKeys=["shielded","isShielded","shieldActive","isProtected","protected","clauseBlocked","isClauseBlocked","buyoutBlocked","blocked"];
-  const statusKeys=["shieldStatus","protectionStatus","clauseStatus","shieldState","protectionState","status","state"];
-  const falseValues=new Set(["false","0","no","none","inactive","unblocked","not blocked","not_blocked","unprotected","no bloqueado","sin bloqueo","no protegido","expired","disabled"]);
-  const trueValues=new Set(["true","1","yes","active","blocked","shielded","protected","enabled"]);
-  let explicitUnblocked=false;
-  const walk=(node,depth=0)=>{
-    if(!node||typeof node!=="object"||depth>6)return false;
-    if(Array.isArray(node))return node.some(item=>walk(item,depth+1));
-    for(const key of activeKeys){
-      if(!Object.prototype.hasOwnProperty.call(node,key))continue;
-      const value=node[key];
-      if(value===false||value===0||(typeof value==="string"&&falseValues.has(value.trim().toLowerCase())))explicitUnblocked=true;
-    }
-    for(const key of statusKeys){
-      if(!Object.prototype.hasOwnProperty.call(node,key)||typeof node[key]!=="string")continue;
-      const value=node[key].trim().toLowerCase().replace(/[-_]+/g," ");
-      const negative= falseValues.has(value)||value.includes("not blocked")||value.includes("unprotected")||value.includes("no bloqueado")||value.includes("sin bloqueo");
-      if(negative){explicitUnblocked=true;continue;}
-      if(trueValues.has(value)||value.includes("blocked")||value.includes("protected")||value.includes("shielded")||value.includes("bloqueado")||value.includes("protegido"))return true;
-    }
-    for(const value of Object.values(node)){if(value&&typeof value==="object"&&walk(value,depth+1))return true;}
-    return false;
-  };
-  const activeText=walk(data);
-  if(activeText)return {known:true,blocked:true,label:"Bloqueado"};
-  if(explicitUnblocked)return {known:true,blocked:false,label:"No bloqueado"};
-  return {known:false,blocked:false,label:"No disponible"};
-}
-
-async function enrichPrivateRosterShields(rosterPlayers,leagueId,teamId){
-  const rosterHost=$("myLeagueRoster");
+async function enrichPrivateRosterShields(rosterPlayers,leagueId){
   await Promise.all(rosterPlayers.map(async(player,index)=>{
     const playerTeamId=privateDirectField(player,["playerTeamId","player_team_id"])??privateDirectField(player?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(player?.playerTeamData,["playerTeamId","player_team_id","id"]);
     if(playerTeamId===null)return;
     try{
-      const data=await privateApi(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/player-team/"+encodeURIComponent(playerTeamId)+"/check-shield",false);
-      const shield=privateShieldStatusFromResponse(data);
-      if(!shield.known)return;
-      if(String(selectedPrivateRosterTeam?.id)!==String(teamId))return;
-      const button=rosterHost?.querySelector('[data-private-roster-index="'+index+'"]');
+      const data=await privateApi(PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/player-team/"+encodeURIComponent(playerTeamId)+"/check-shield",true);
+      const label=privateShieldDescription(data);
+      if(!label)return;
+      const button=$("myLeagueRoster")?.querySelector('[data-private-roster-index="'+index+'"]');
       const meta=button?.querySelector(".private-player-meta");
-      if(meta&&!/Bloqueado|No bloqueado/.test(meta.textContent))meta.textContent=(meta.textContent?meta.textContent+" · ":"")+shield.label;
+      if(meta&&!meta.textContent.includes("Cláusula bloqueada"))meta.textContent=(meta.textContent?meta.textContent+" · ":"")+label;
     }catch(error){/* Si LALIGA deniega la consulta, se mantiene visible la plantilla. */}
   }));
 }
@@ -3224,8 +3342,6 @@ function renderPrivateActivity(rows){
 }
 $("myLeaguesReload").onclick=()=>loadMyLeagues(true);
 $("privateDailyRewardButton")?.addEventListener("click",handlePrivateDailyRewardClick);
-$("privateClauseSort")?.addEventListener("change",renderPrivateClauseAnalyzer);
-$("privateClauseRefresh")?.addEventListener("click",()=>loadPrivateClauseAnalyzer(true));
 $("myMarketRefreshBalance")?.addEventListener("click",()=>loadPrivateMarketBalance(true));
 $("myLeaguesLoginButton").onclick=()=>showAuth();
 $("backMyLeagues").onclick=closePrivateLeague;
@@ -3321,5 +3437,8 @@ setTimeout(async()=>{await loadCurrentWeek();await loadTeams();await loadPlayers
 document.getElementById("bottomAuth").onclick=showAuth;
 </script>
 </div>
+<script>
+document.querySelectorAll("[data-section]").forEach(b=>b.addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"})));
+</script>
 </body>
 </html>
