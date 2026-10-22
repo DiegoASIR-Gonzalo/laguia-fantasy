@@ -333,7 +333,8 @@ const PRIVATE_READ_ALLOWLIST = [
   /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/playerTeam\/[A-Za-z0-9_-]+\/offer$/,
   /^\/v1\/competition\/1\/player\/[A-Za-z0-9_-]+\/league\/[A-Za-z0-9_-]+$/,
   /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/player-team\/[A-Za-z0-9_-]+\/check-shield$/,
-  /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/team\/[A-Za-z0-9_-]+\/check-daily-reward$/
+  /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/team\/[A-Za-z0-9_-]+\/check-daily-reward$/,
+  /^\/v1\/competition\/1\/daily-reward$/
 ];
 
 function privateReadAllowed(path) {
@@ -361,7 +362,8 @@ async function requestFantasyRead(path, token) {
 const PRIVATE_WRITE_RULES = [
   { method: "POST", test: /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/market\/[A-Za-z0-9_-]+\/bid$/, action: "market_bid" },
   { method: "POST", test: /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/buyout\/[A-Za-z0-9_-]+\/pay$/, action: "buyout_pay" },
-  { method: "PUT", test: /^\/v1\/competition\/1\/teams\/[A-Za-z0-9_-]+\/lineup$/, action: "lineup_save" }
+  { method: "PUT", test: /^\/v1\/competition\/1\/teams\/[A-Za-z0-9_-]+\/lineup$/, action: "lineup_save" },
+  { method: "POST", test: /^\/v1\/competition\/1\/league\/[A-Za-z0-9_-]+\/team\/daily-reward$/, action: "daily_reward" }
 ];
 const ALLOWED_FORMATIONS = new Set(["5,4,1", "5,3,2", "4,5,1", "4,4,2", "4,3,3", "3,5,2", "3,4,3", "5,2,3", "4,6,0", "4,2,4", "3,6,1", "3,3,4"]);
 const APPROVAL_TICKET_TTL_MS = 90 * 1000;
@@ -400,6 +402,14 @@ function validatePrivateWrite(method, path, payload) {
   }
 
   const expectedKeys = ["goalkeeper", "defender", "midfield", "striker", "tactical_formation"];
+  if (rule.action === "daily_reward") {
+    if (Object.keys(payload).length !== 3 || payload.rewardedAdType !== "dailyreward" || payload.rewardedAd !== 1 ||
+        typeof payload.teamId !== "string" || !/^[0-9]{1,20}$/.test(payload.teamId)) {
+      throw new Error("La recompensa diaria debe llevar rewardedAdType \"dailyreward\", rewardedAd 1 y teamId como texto numérico.");
+    }
+    return { rule: rule, payload: { rewardedAdType: "dailyreward", rewardedAd: 1, teamId: payload.teamId } };
+  }
+  
   if (Object.keys(payload).length !== expectedKeys.length || expectedKeys.some(function (key) { return !Object.prototype.hasOwnProperty.call(payload, key); })) {
     throw new Error("La alineación debe incluir portero, defensas, centrocampistas, delanteros y formación táctica.");
   }
