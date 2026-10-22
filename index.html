@@ -2706,35 +2706,60 @@ function privateOwnTeamId(league=selectedPrivateLeague){
   return direct===null?null:String(direct);
 }
 let selectedPrivateDailyRewardState=null;
+const PRIVATE_DAILY_REWARD_STOP="050.01.04"; // "Team daily reward limit reached": ya cobrada, es la señal de parar
 
-function privateFindDailyRewardRedeemed(node,depth=0){
-  if(!node||typeof node!=="object"||depth>7)return {found:false,value:null};
-  if(Object.prototype.hasOwnProperty.call(node,"dailyRewardsRedeemed")){
-    return {found:true,value:node.dailyRewardsRedeemed};
-  }
-  if(Array.isArray(node)){
-    for(const item of node){const found=privateFindDailyRewardRedeemed(item,depth+1);if(found.found)return found;}
-    return {found:false,value:null};
+function privateDeepField(node,names,depth=0){
+  if(!node||typeof node!=="object"||depth>7)return null;
+  for(const name of names){
+    if(Object.prototype.hasOwnProperty.call(node,name)&&node[name]!==null&&node[name]!==undefined)return node[name];
   }
   for(const value of Object.values(node)){
-    if(value&&typeof value==="object"){
-      const found=privateFindDailyRewardRedeemed(value,depth+1);
-      if(found.found)return found;
-    }
+    if(value&&typeof value==="object"){const found=privateDeepField(value,names,depth+1);if(found!==null)return found;}
   }
-  return {found:false,value:null};
+  return null;
 }
-function privateDailyRewardIsRedeemed(value){
-  if(value===true||value===1)return true;
-  if(value===false||value===0||value===null||value===undefined)return false;
-  if(typeof value==="string"){
-    const normalized=value.trim().toLowerCase();
-    if(["true","yes","si","sí","1","claimed","redeemed"].includes(normalized))return true;
-    if(["false","no","0",""].includes(normalized))return false;
-    const numeric=Number(normalized);
-    if(Number.isFinite(numeric))return numeric>0;
+function privateDailyRewardCount(value){
+  if(value===true)return 1;
+  if(typeof value==="string"&&["yes","si","sí","claimed","redeemed","true"].includes(value.trim().toLowerCase()))return 1;
+  const n=Number(typeof value==="string"?value.trim():value);
+  return Number.isFinite(n)&&n>0?Math.floor(n):0;
+}
+// 1) Catálogo: GET /v1/competition/1/daily-reward → { money, dailyLimit }. Si falla, se asume el límite actual (2/día)
+//    y manda igualmente la señal de parar del check.
+async function privateDailyRewardCatalog(){
+  try{
+    const data=await privateApi(PRIVATE_API_BASE+"/daily-reward",true);
+    const limit=Number(privateDeepField(data,["dailyLimit","daily_limit"]));
+    const money=Number(privateDeepField(data,["money","amount"]));
+    return {limit:Number.isInteger(limit)&&limit>0?limit:2,money:Number.isFinite(money)&&money>0?money:null};
+  }catch{
+    return {limit:2,money:null};
   }
-  return false;
+}
+// 2) Check: GET .../league/{league}/team/{team}/check-daily-reward
+//    200 → {"teamId":…,"dailyRewardsRedeemed":n} · 400 con 050.01.04 NO es un error: ya está cobrada.
+async function privateDailyRewardCheck(leagueId,teamId){
+  const path=PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/team/"+encodeURIComponent(teamId)+"/check-daily-reward";
+  const response=await fetch("/api/auth?path="+encodeURIComponent(path),{
+    method:"GET",headers:{Accept:"application/json"},credentials:"same-origin",cache:"no-store"
+  });
+  const raw=await response.text();
+  let data={};
+  try{data=raw?JSON.parse(raw):{}}catch{data={message:raw.slice(0,350)}}
+  if(response.status===401){
+    privateAuthState={authenticated:false};privateApiCache.clear();setAuthUi(privateAuthState);
+    throw Error(privateErrorMessage(data,response.status));
+  }
+  if(response.status===400&&data?.errorCode===PRIVATE_DAILY_REWARD_STOP)return {stop:true,redeemed:null};
+  if(!response.ok)throw Error(privateErrorMessage(data,response.status));
+  const found=privateDeepField(data,["dailyRewardsRedeemed"]);
+  if(found===null)throw Error("La respuesta no indica cuántas recompensas se han recogido.");
+  return {stop:false,redeemed:privateDailyRewardCount(found)};
+}
+// El POST no devuelve importe: se verifica con GET .../teams/{teamId}/money antes y después (solo tu equipo).
+async function privateTeamMoneyNow(teamId){
+  const data=await privateApi(PRIVATE_API_BASE+"/teams/"+encodeURIComponent(teamId)+"/money",true);
+  return privateExtractMoney(data);
 }
 function privateRenderDailyReward(state){
   const button=$("privateDailyRewardButton"),status=$("privateDailyRewardStatus");
@@ -2752,28 +2777,28 @@ function privateRenderDailyReward(state){
     status.textContent="Consultando si puedes recoger las monedas de hoy.";
     return;
   }
-  if(state.redeemed){
+  if(state.claiming){
     button.disabled=true;
-    button.textContent="Recogidas hoy ✓";
-    status.textContent="La recompensa diaria de esta liga ya está recogida.";
+    button.textContent="Recogiendo…";
+    status.textContent=state.message||"Recogiendo la recompensa diaria…";
     return;
   }
-  if(state.officialOpened){
-    button.disabled=false;
-    button.textContent="Comprobar monedas";
-    status.textContent="Tras reclamar en LALIGA Fantasy, pulsa aquí para verificar el saldo diario.";
+  const extra=state.message?state.message+" ":"";
+  if(state.pending<=0){
+    button.disabled=true;
+    button.textContent="Recogidas hoy ✓";
+    status.textContent=extra+"Ya recogiste las "+state.limit+" recompensas de hoy en esta liga. Se renuevan a medianoche (hora de Madrid).";
     return;
   }
   button.disabled=false;
-  button.textContent="Recoger Monedas";
-  status.textContent="Comprueba la recompensa disponible en esta liga.";
+  button.textContent="Recoger monedas"+(state.pending>1?" ("+state.pending+")":"");
+  status.textContent=extra+"Disponible: "+state.pending+" de "+state.limit+(state.money?" · "+privateMoney(state.money)+" por recompensa":"")+".";
 }
-async function refreshPrivateDailyRewardStatus(){
+async function refreshPrivateDailyRewardStatus(message=""){
   const button=$("privateDailyRewardButton"),status=$("privateDailyRewardStatus");
   const league=selectedPrivateLeague;
   const leagueId=privateLeagueId(league);
-  if(!button||!status||!leagueId)return;
-  const oldState=selectedPrivateDailyRewardState;
+  if(!button||!status||!leagueId)return null;
   button.disabled=true;
   button.textContent="Comprobando…";
   status.textContent="Consultando el estado diario de esta liga…";
@@ -2786,29 +2811,59 @@ async function refreshPrivateDailyRewardStatus(){
     if(!teamId)teamId=await lineupEditorResolveOwnTeam(league);
     if(!teamId)throw Error("No se ha podido identificar tu equipo en esta liga.");
     selectedPrivateOwnTeamId=String(teamId);
-    const path=PRIVATE_API_BASE+"/league/"+encodeURIComponent(leagueId)+"/team/"+encodeURIComponent(teamId)+"/check-daily-reward";
-    const response=await privateApi(path,true);
-    const parsed=privateFindDailyRewardRedeemed(response);
-    if(!parsed.found)throw Error("La respuesta no indica si la recompensa ya se ha recogido.");
-    privateRenderDailyReward({
-      leagueId:String(leagueId),
-      teamId:String(teamId),
-      redeemed:privateDailyRewardIsRedeemed(parsed.value),
-      officialOpened:oldState?.leagueId===String(leagueId)&&oldState?.officialOpened===true
-    });
+    const [catalog,check]=await Promise.all([privateDailyRewardCatalog(),privateDailyRewardCheck(leagueId,teamId)]);
+    const redeemed=check.stop?catalog.limit:check.redeemed;
+    const state={
+      leagueId:String(leagueId),teamId:String(teamId),
+      limit:catalog.limit,money:catalog.money,redeemed:redeemed,
+      pending:Math.max(0,catalog.limit-redeemed),message:message
+    };
+    privateRenderDailyReward(state);
+    return state;
   }catch(error){
     privateRenderDailyReward(null);
     status.textContent=(error?.message||"No se pudo comprobar la recompensa.")+" Puedes reintentarlo más tarde.";
+    return null;
   }
 }
-function handlePrivateDailyRewardClick(){
+// 3) Cobro: POST .../league/{league}/team/daily-reward   Orden: check → cobrar (límite − cobradas) → parar
+async function handlePrivateDailyRewardClick(){
   const state=selectedPrivateDailyRewardState;
-  if(!selectedPrivateLeague||!state||state.redeemed)return;
-  // La API exige una prueba real generada por el SDK de anuncio recompensado.
-  window.open("https://fantasy.laliga.com/","_blank","noopener,noreferrer");
-  privateRenderDailyReward(Object.assign({},state,{officialOpened:true}));
-  const status=$("privateDailyRewardStatus");
-  if(status)status.textContent="Completa el anuncio recompensado en LALIGA Fantasy y vuelve aquí para comprobar la recompensa. Esta web aún no puede generar la prueba de anuncio necesaria.";
+  if(!selectedPrivateLeague||!state||state.claiming||!(state.pending>0))return;
+  const total=state.pending;
+  const resumen="RECOMPENSA DIARIA\n\nLiga: "+privateLeagueName(selectedPrivateLeague)+
+    "\nRecompensas a recoger ahora: "+total+(state.money?" ("+privateMoney(state.money)+" cada una)":"")+
+    "\n\n¿Confirmas?";
+  if(!window.confirm(resumen))return; // una sola confirmación para todas; el proxy sigue exigiendo prepare → confirm
+  // Ojo: ruta en singular league/team, sin teamId en la URL; teamId como string en el cuerpo; rewardedAd:1 es solo un flag.
+  const path=PRIVATE_API_BASE+"/league/"+encodeURIComponent(state.leagueId)+"/team/daily-reward";
+  const payload={rewardedAdType:"dailyreward",rewardedAd:1,teamId:String(state.teamId)};
+  let before=null,claimed=0,note="";
+  try{before=await privateTeamMoneyNow(state.teamId)}catch{before=null}
+  try{
+    for(let i=0;i<total;i++){
+      privateRenderDailyReward({claiming:true,message:"Recogiendo "+(i+1)+" de "+total+"…"});
+      try{
+        await privateApiWrite(path,payload,"POST","",true);
+        claimed++;
+      }catch(error){
+        if(error?.errorCode===PRIVATE_DAILY_REWARD_STOP){note="LALIGA indica que ya no quedan recompensas hoy.";break;}
+        throw error;
+      }
+    }
+  }catch(error){
+    note=error?.message||"No se pudo recoger la recompensa.";
+  }
+  let after=null;
+  try{after=await privateTeamMoneyNow(state.teamId)}catch{after=null}
+  const parts=[claimed?"Recogidas "+claimed+" recompensa"+(claimed>1?"s":"")+".":"No se recogió ninguna recompensa."];
+  if(before!==null&&after!==null){
+    const diff=after-before;
+    parts.push("Saldo "+privateMoney(before)+" → "+privateMoney(after)+" ("+(diff>=0?"+":"−")+privateMoney(Math.abs(diff))+").");
+  }
+  if(note)parts.push(note);
+  await refreshPrivateDailyRewardStatus(parts.join(" "));
+  try{await loadPrivateMarketBalance(true)}catch{}
 }
 
 function privateExtractMoney(data){
@@ -2862,7 +2917,7 @@ async function loadPrivateMarketBalance(force=false){
     return null;
   }
 }
-async function privateApiWrite(path,payload,method="POST",confirmationText=""){
+async function privateApiWrite(path,payload,method="POST",confirmationText="",preConfirmed=false){
   if(!privateAuthState?.authenticated)throw Error("Inicia sesión antes de realizar una operación.");
   if(!["POST","PUT"].includes(method))throw Error("Esta operación no está permitida.");
   const endpoint="/api/auth?path="+encodeURIComponent(path);
@@ -2882,7 +2937,7 @@ async function privateApiWrite(path,payload,method="POST",confirmationText=""){
   }
   const answer=confirmationText||
     "Vas a ejecutar una operación de escritura en LALIGA Fantasy.\n\n¿Confirmas esta acción?";
-  if(!window.confirm(answer+"\n\nLa acción se ha validado y la confirmación caduca en 90 segundos.")){
+  if(!preConfirmed&&!window.confirm(answer+"\n\nLa acción se ha validado y la confirmación caduca en 90 segundos.")){
     return {cancelled:true};
   }
   const confirmed=await send({
@@ -2894,7 +2949,9 @@ async function privateApiWrite(path,payload,method="POST",confirmationText=""){
   });
   if(!confirmed.response.ok||confirmed.data?.success!==true){
     const detail=privateErrorMessage(confirmed.data,confirmed.response.status);
-    throw Error(detail+". No se ha confirmado el éxito; actualiza mercado, saldo o alineación antes de volver a intentarlo.");
+    const failure=Error(detail+". No se ha confirmado el éxito; actualiza mercado, saldo o alineación antes de volver a intentarlo.");
+    failure.errorCode=confirmed.data?.errorCode||null;
+    throw failure;
   }
   privateApiCache.clear();
   return confirmed.data;
@@ -3039,7 +3096,7 @@ async function openPrivateLeague(league){
   $("myLeagueMeta").textContent="ID de liga: "+(id||"no disponible");
   $("myLeagueRoster").classList.add("hidden");
   $("myLeagueRoster").replaceChildren();
-  privateRenderDailyReward({leagueId:String(id||""),redeemed:false,officialOpened:false,loading:true});
+  privateRenderDailyReward({leagueId:String(id||""),loading:true});
   await switchPrivateLeagueTab("standing");
   await refreshPrivateDailyRewardStatus();
 }
