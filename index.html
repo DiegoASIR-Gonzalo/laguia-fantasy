@@ -932,6 +932,15 @@ button:active{transform:translateY(1px)}
 .clause-lock-banner .lock-icon{width:20px;height:20px;margin:1px 0 0}
 .clause-lock-banner strong{display:block;font-size:15px;font-family:var(--f-head)}
 .clause-lock-banner span{display:block;font-size:13px;color:#d9c36a;margin-top:3px;line-height:1.45}
+
+/* ===== Capa 4: analizador de cláusulas y bloqueados ===== */
+.clause-tools{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin:0 0 14px}
+.clause-tools label{display:grid;gap:6px;font-size:13px;color:var(--muted)}
+.clause-tools select{min-width:260px}
+.clause-search{flex:1;min-width:200px}.clause-search input{width:100%}
+.clause-summary{font-size:13px;color:var(--muted);margin:0 0 12px;min-height:18px}
+.private-player-side strong .lock-icon{margin-right:5px}
+@media(max-width:699px){.clause-tools select{min-width:0;width:100%}.clause-tools label,.clause-tools button{width:100%}}
 </style>
 </head>
 <body>
@@ -1062,6 +1071,8 @@ button:active{transform:translateY(1px)}
           <button type="button" data-private-tab="standing" class="active">Clasificación</button>
           <button type="button" data-private-tab="teams">Equipos y plantillas</button>
           <button type="button" data-private-tab="market">Mercado</button>
+          <button type="button" data-private-tab="clauses">Analizador de cláusulas</button>
+          <button type="button" data-private-tab="locked">Cláusulas bloqueadas</button>
           <button type="button" data-private-tab="activity">Movimientos</button>
         </div>
         <div id="myLeaguePanelState" class="private-state" aria-live="polite"></div>
@@ -1078,6 +1089,14 @@ button:active{transform:translateY(1px)}
             <button type="button" id="myMarketRefreshBalance">Actualizar saldo</button>
           </div>
           <div id="myMarketContent"></div>
+        </div>
+        <div id="myClausesPanel" class="private-panel hidden">
+          <div class="private-panel-intro">Todos los jugadores de otros managers cuya cláusula puedes pagar ahora. No se incluyen los de tu equipo ni los que tienen la cláusula bloqueada.</div>
+          <div id="myClausesContent"></div>
+        </div>
+        <div id="myLockedPanel" class="private-panel hidden">
+          <div class="private-panel-intro">Jugadores de la liga con la cláusula bloqueada, con el día y la hora en que termina el bloqueo.</div>
+          <div id="myLockedContent"></div>
         </div>
         <div id="myActivityPanel" class="private-panel hidden">
           <div class="private-panel-intro">Historial de movimientos de la liga. Esta ruta también está pendiente de verificación con cuenta real.</div>
@@ -3008,6 +3027,7 @@ function renderMyLeagueCards(leagues){
 }
 async function openPrivateLeague(league){
   selectedPrivateLeague=league;
+  selectedPrivateClauseData=null;
   selectedPrivateOwnTeamId=privateOwnTeamId(league);
   selectedPrivateBalance=null;
   selectedPrivateStanding=[];
@@ -3025,6 +3045,7 @@ async function openPrivateLeague(league){
 }
 function closePrivateLeague(){
   selectedPrivateLeague=null;
+  selectedPrivateClauseData=null;
   selectedPrivateOwnTeamId=null;
   selectedPrivateBalance=null;
   selectedPrivateStanding=[];
@@ -3033,11 +3054,81 @@ function closePrivateLeague(){
   $("myLeagueCards").classList.remove("hidden");
   privateSetPanelState("");
 }
+let selectedPrivateClauseData=null;
+const PRIVATE_NAME_KEYS=["managerName","teamName","name","nickname","displayName","username","manager"];
+function privateClauseItem(entry,team,own){
+  const info=privatePlayerInfo(entry);
+  const playerTeamId=privateDirectField(entry,["playerTeamId","player_team_id"])??privateDirectField(entry?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(entry?.playerTeamData,["playerTeamId","player_team_id","id"]);
+  return {entry,info,teamId:team.id,teamName:team.name,own,playerTeamId,clauseAmount:privateIntegerMoney(info.clause),lock:privateClauseLock(entry),position:privateField(info.master,["positionName","position","positionId","role"])};
+}
+async function loadPrivateClauseData(){
+  const leagueId=privateLeagueId(selectedPrivateLeague);
+  if(selectedPrivateClauseData&&selectedPrivateClauseData.leagueId===leagueId)return selectedPrivateClauseData;
+  if(!selectedPrivateStanding.length){
+    const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/standing");
+    selectedPrivateStanding=privateRows(data,"standing");
+  }
+  let ownTeamId=selectedPrivateOwnTeamId||privateOwnTeamId(selectedPrivateLeague);
+  if(!ownTeamId){try{ownTeamId=await lineupEditorResolveOwnTeam(selectedPrivateLeague);}catch(error){ownTeamId=null;}}
+  if(ownTeamId)selectedPrivateOwnTeamId=String(ownTeamId);
+  const teams=selectedPrivateStanding.map((row,index)=>{const id=privateId(row,"team");return id?{id:String(id),name:privateText(privateField(row,PRIVATE_NAME_KEYS),"Equipo "+id)}:null}).filter(Boolean);
+  if(!teams.length)throw Error("No se encontraron equipos en la clasificación de esta liga.");
+  const items=[],queue=teams.slice();let done=0,failed=0;
+  const worker=async()=>{
+    while(queue.length){
+      const team=queue.shift();
+      try{
+        const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/teams/"+encodeURIComponent(team.id));
+        const own=ownTeamId!==null&&ownTeamId!==undefined&&String(ownTeamId)===team.id;
+        privateRows(data,"roster").forEach(entry=>items.push(privateClauseItem(entry,team,own)));
+      }catch(error){failed++}
+      done++;
+      privateSetPanelState("Cargando plantillas de la liga… "+done+"/"+teams.length);
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(4,teams.length)},worker));
+  if(failed===teams.length)throw Error("No se pudo leer ninguna plantilla de la liga. Inténtalo de nuevo.");
+  selectedPrivateClauseData={leagueId,items,failed,teams:teams.length};
+  return selectedPrivateClauseData;
+}
+function privateClauseRowHtml(item,index,mode){
+  const info=item.info;
+  const avatar=info.image?'<img class="private-player-avatar" src="'+esc(info.image)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<span class="private-player-avatar-fallback" aria-hidden="true"></span>';
+  const meta=["Manager: "+item.teamName+(item.own?" (tu equipo)":""),item.position!==null?String(item.position):null].filter(Boolean).join(" · ");
+  const locked=mode==="locked"&&item.lock;
+  const lockLine=locked?'<span class="clause-lock">'+PRIVATE_LOCK_ICON+'<span><b>Bloqueada hasta</b> el '+item.lock.date+' a las '+item.lock.time+'</span></span>':'';
+  const side=locked
+    ?'<strong>'+PRIVATE_LOCK_ICON+esc(item.lock.remaining)+'</strong><small>'+esc(item.clauseAmount?"Cláusula "+privateMoney(item.clauseAmount):"Cláusula n/d")+'</small>'
+    :'<strong>'+esc(privateMoney(item.clauseAmount))+'</strong><small>'+esc(info.price===null?"Valor n/d":"Valor "+privateMoney(info.price))+'</small>';
+  return '<div class="private-roster-entry'+(locked?' is-clause-locked':'')+'"><button type="button" class="private-player-row private-player-open" data-ct-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta)+'</span>'+lockLine+'</span></span><span class="private-player-side">'+side+'</span></button></div>';
+}
+function renderPrivateClauseTool(hostId,mode,data,onRefresh){
+  const host=$(hostId),isLocked=mode==="locked";
+  const items=data.items.filter(it=>isLocked?!!it.lock:(!it.own&&it.playerTeamId!==null&&it.clauseAmount&&!it.lock));
+  const options=isLocked
+    ?[["desc","Más tiempo de bloqueo restante primero"],["asc","Menos tiempo de bloqueo restante primero"]]
+    :[["desc","Cláusula: de mayor a menor"],["asc","Cláusula: de menor a mayor"]];
+  host.innerHTML='<div class="clause-tools"><label>Ordenar<select data-ct="sort">'+options.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join("")+'</select></label><label class="clause-search">Filtrar<input type="search" data-ct="q" autocomplete="off" placeholder="Jugador o manager…"></label><button type="button" data-ct="refresh">Actualizar</button></div><div class="clause-summary" data-ct="sum" aria-live="polite"></div><div data-ct="list"></div>';
+  const sortEl=host.querySelector('[data-ct="sort"]'),qEl=host.querySelector('[data-ct="q"]'),listEl=host.querySelector('[data-ct="list"]'),sumEl=host.querySelector('[data-ct="sum"]');
+  const draw=()=>{
+    const q=privateNormalizeName(qEl.value),dir=sortEl.value;
+    const rows=items.filter(it=>!q||privateNormalizeName(it.info.name+" "+it.teamName).includes(q));
+    rows.sort((a,b)=>{const av=isLocked?a.lock.ms:a.clauseAmount,bv=isLocked?b.lock.ms:b.clauseAmount;return dir==="asc"?av-bv:bv-av});
+    sumEl.textContent=(isLocked?rows.length+" de "+items.length+" jugadores con cláusula bloqueada":rows.length+" de "+items.length+" jugadores con cláusula pagable")+(data.failed?" · No se pudieron leer "+data.failed+" plantilla"+(data.failed===1?"":"s"):"");
+    listEl.innerHTML=rows.length?rows.map((it,i)=>privateClauseRowHtml(it,i,mode)).join(""):'<div class="private-empty">'+(items.length?"Ningún jugador coincide con el filtro.":(isLocked?"Ahora mismo no hay jugadores con la cláusula bloqueada.":"No hay jugadores con cláusula pagable en esta liga."))+'</div>';
+    listEl.querySelectorAll("[data-ct-index]").forEach(btn=>btn.addEventListener("click",()=>openPrivatePlayer(rows[Number(btn.dataset.ctIndex)].entry)));
+  };
+  sortEl.addEventListener("change",draw);
+  qEl.addEventListener("input",draw);
+  host.querySelector('[data-ct="refresh"]').addEventListener("click",onRefresh);
+  draw();
+  return items.length;
+}
 async function switchPrivateLeagueTab(tab){
   if(!selectedPrivateLeague)return;
   selectedPrivateLeagueTab=tab;
   document.querySelectorAll("[data-private-tab]").forEach(b=>b.classList.toggle("active",b.dataset.privateTab===tab));
-  const panels={standing:"myStandingPanel",teams:"myTeamsPanel",market:"myMarketPanel",activity:"myActivityPanel"};
+  const panels={standing:"myStandingPanel",teams:"myTeamsPanel",market:"myMarketPanel",clauses:"myClausesPanel",locked:"myLockedPanel",activity:"myActivityPanel"};
   Object.entries(panels).forEach(([key,id])=>$(id).classList.toggle("hidden",key!==tab));
   privateSetPanelState("");
   try{
@@ -3089,6 +3180,11 @@ async function switchPrivateLeagueTab(tab){
       renderPrivateMarket(privateRows(data,"market"));
       await loadPrivateMarketBalance(true);
       privateSetPanelState("Consulta de mercado completada.","good");
+    }else if(tab==="clauses"||tab==="locked"){
+      privateSetPanelState("Cargando plantillas de la liga…");
+      const data=await loadPrivateClauseData();
+      const total=renderPrivateClauseTool(tab==="clauses"?"myClausesContent":"myLockedContent",tab,data,()=>{selectedPrivateClauseData=null;switchPrivateLeagueTab(tab)});
+      privateSetPanelState(tab==="clauses"?"Analizador cargado: "+total+" jugadores con cláusula pagable.":"Cláusulas bloqueadas: "+total+" jugadores.","good");
     }else if(tab==="activity"){
       privateSetPanelState("Cargando movimientos…");
       const data=await privateApi(PRIVATE_API_BASE+"/leagues/"+encodeURIComponent(leagueId)+"/activity/0");
@@ -3098,7 +3194,7 @@ async function switchPrivateLeagueTab(tab){
   }catch(error){
     const msg=error?.message||"No se pudo cargar esta sección.";
     privateSetPanelState(msg,"error");
-    const host=tab==="standing"?$("myStandingPanel"):tab==="market"?$("myMarketContent"):tab==="activity"?$("myActivityContent"):null;
+    const host=tab==="standing"?$("myStandingPanel"):tab==="market"?$("myMarketContent"):tab==="activity"?$("myActivityContent"):tab==="clauses"?$("myClausesContent"):tab==="locked"?$("myLockedContent"):null;
     if(host)host.innerHTML='<div class="private-empty">'+esc(msg)+'</div>';
   }
 }
@@ -3410,7 +3506,7 @@ function setAuthUi(data){
   const wasLogged=!!privateAuthState?.authenticated;
   privateAuthState=data||{authenticated:false};
   const logged=!!data?.authenticated;
-  if(wasLogged&&!logged){privateApiCache.clear();selectedPrivateLeague=null;selectedPrivateRosterTeam=null;selectedPrivateRosterPlayers=[];selectedPrivateBalance=null;selectedPrivateOwnTeamId=null;}
+  if(wasLogged&&!logged){selectedPrivateClauseData=null;privateApiCache.clear();selectedPrivateLeague=null;selectedPrivateRosterTeam=null;selectedPrivateRosterPlayers=[];selectedPrivateBalance=null;selectedPrivateOwnTeamId=null;}
   const b=$("authButton");b.textContent=logged?"Sesión activa":"Iniciar sesión";b.classList.toggle("logged",logged);
   $("loginPanel").style.display=logged?"none":"block";
   $("sessionPanel").style.display=logged?"block":"none";
