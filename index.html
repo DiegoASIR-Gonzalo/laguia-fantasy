@@ -941,6 +941,36 @@ button:active{transform:translateY(1px)}
 .clause-summary{font-size:13px;color:var(--muted);margin:0 0 12px;min-height:18px}
 .private-player-side strong .lock-icon{margin-right:5px}
 @media(max-width:699px){.clause-tools select{min-width:0;width:100%}.clause-tools label,.clause-tools button{width:100%}}
+
+/* ===== Estadísticas por jornada (ficha del jugador) ===== */
+.week-strip{gap:2px;padding:0 0 4px;margin-bottom:12px;scroll-snap-type:x proximity;scrollbar-width:thin}
+.week-btn{min-width:54px;padding:8px 6px;scroll-snap-align:center;transition:background .2s var(--ease)}
+.week-btn span{font-size:10px;letter-spacing:.04em}
+.week-btn b{font-size:13px}
+.week-btn b.pos,.wk-total.pos b,.wk-group header .pos,.wk-row em.pos{color:var(--green)}
+.week-btn b.neg,.wk-total.neg b,.wk-group header .neg,.wk-row em.neg{color:var(--red)}
+.week-btn.selected b,.week-btn.selected span{color:#fff}
+.wk-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--s2);margin-bottom:2px}
+.wk-nav{display:flex;align-items:center;gap:12px;min-width:0}
+.wk-arrow{width:32px;height:32px;flex:0 0 auto;display:grid;place-items:center;background:var(--s3)!important;border:0!important;color:#fff;font-size:15px;cursor:pointer;transition:background .2s var(--ease)}
+.wk-arrow:hover:not(:disabled){background:var(--red)!important}
+.wk-arrow:disabled{opacity:.3;cursor:default}
+.wk-name b{display:block;font-family:var(--f-head);font-size:16px}
+.wk-name span{color:var(--muted);font-size:12px}
+.wk-name .ideal{margin:0;font-style:normal;color:var(--gold);font-size:12px}
+.wk-total{text-align:right;flex:0 0 auto}
+.wk-total b{display:block;font-family:var(--f-head);font-size:26px;line-height:1}
+.wk-total span{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.wk-groups{columns:2;column-gap:2px}  /* columnas equilibradas, sin huecos entre tarjetas */
+.wk-group{background:var(--s2);break-inside:avoid;margin-bottom:2px}
+.wk-group header{display:flex;justify-content:space-between;align-items:baseline;padding:9px 12px;background:var(--s3)}
+.wk-group h4{margin:0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wk-group header span{font-size:12px;font-weight:600}
+.wk-row{display:grid;grid-template-columns:minmax(0,1fr) auto 54px;gap:10px;align-items:baseline;padding:7px 12px;border-top:1px solid var(--ln);font-size:13px}
+.wk-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#cfcfcf}
+.wk-row b{text-align:right;font-weight:600}
+.wk-row em{font-style:normal;text-align:right;font-size:12px;color:var(--muted)}
+@media(max-width:620px){.wk-groups{columns:1}.wk-total b{font-size:22px}}
 </style>
 </head>
 <body>
@@ -2342,29 +2372,64 @@ function renderPlayer(data,privateContext=null){
       [["Nombre",p.name],["Posición",p.position||"—"],["Equipo",p.team||"—"],["Puntos",p.last===null?"—":p.last],["Media de puntos",p.avg===null?"—":p.avg],["Valor de mercado",money(p.market)]].concat(privateContext?[["Precio en la liga",contextPrice===null?money(p.market):money(contextPrice)],["Cláusula",clause===null?"No disponible":money(clause)]]:[]).map(([k,v])=>'<div class="key">'+esc(k)+'</div><div>'+scalar(v)+'</div>').join("")+
     '</div></div>'+
     (stats.length?'<div data-view="weeks" class="hidden"><div class="week-strip">'+
-      [...stats].sort((a,b)=>Number(a.weekNumber)-Number(b.weekNumber)).map(st=>'<button type="button" class="week-btn" data-week="'+esc(st.weekNumber)+'"><span>J'+esc(st.weekNumber)+'</span><b>'+esc(st.totalPoints??0)+'</b></button>').join("")+
+      [...stats].sort((a,b)=>Number(a.weekNumber)-Number(b.weekNumber)).map(st=>'<button type="button" class="week-btn" data-week="'+esc(st.weekNumber)+'"><span>J'+esc(st.weekNumber)+'</span><b class="'+(Number(st.totalPoints)>0?"pos":Number(st.totalPoints)<0?"neg":"")+'">'+esc(st.totalPoints??0)+'</b></button>').join("")+
     '</div><div id="weekDetail"></div></div>':"")+
     '<div data-view="fields" class="hidden"><div class="kv">'+basicEntries.map(([k,v])=>'<div class="key">'+esc(tr(k))+'</div><div>'+ (obj(v)?'<span class="subtle">'+(Array.isArray(v)?"Lista":"Objeto")+'</span>':scalar(v))+'</div>').join("")+'</div></div>'+
     (media.length?'<div data-view="media" class="hidden"><div class="media-grid">'+media.slice(0,40).map(([k,v])=>'<div class="media-card"><img src="'+esc(v)+'" alt="" loading="lazy"><div>'+esc(tr(k))+'</div></div>').join("")+'</div></div>':"")+
     '<div data-view="json" class="hidden"><pre>'+esc(JSON.stringify(data,null,2))+'</pre></div></div>';
 
+  // ---- Estadísticas por jornada: agrupadas por categoría, con valor y puntos alineados ----
+  const WEEK_ORDER=["mins_played","goals","goal_assist","shots","shots_on_target","key_passes","pen_area_entries","won_contest","touches","passes","accurate_passes","crosses","poss_lost_all","effective_clearance","ball_recovery","tackles","interceptions","saves","goals_conceded","yellow_card","red_card","marca_points"];
+  const WEEK_GROUPS=[
+    {id:"play",name:"Participación",test:/^(mins?_played|minutes|games?_played|appearances|starts?|substitut)/},
+    {id:"gk",name:"Portería",test:/^(saves?|goals_conceded|goals_against|clean_sheet|penalty_sav|punch|catch|high_claim|keeper|gk_|saved)/},
+    {id:"disc",name:"Disciplina y errores",test:/card|foul|offside|own_goal|error|penalty_(conceded|committed|miss)/},
+    {id:"att",name:"Ataque",test:/goal|assist|shot|key_pass|pen_area|chance|dribble|contest|attack/},
+    {id:"pass",name:"Pases y balón",test:/touch|pass|cross|poss|long_ball|through/},
+    {id:"def",name:"Defensa",test:/clearance|recover|tackle|intercept|duel|block|aerial|defen/}
+  ];
+  const weekGroup=key=>WEEK_GROUPS.find(g=>g.test.test(key))||{id:"other",name:"Otros"};
+  const ptsClass=n=>n>0?"pos":n<0?"neg":"";
+  const fmtPts=n=>(n>0?"+":n<0?"−":"")+Math.abs(n).toLocaleString("es-ES",{maximumFractionDigits:2});
+  const sortedStats=[...stats].sort((a,b)=>Number(a.weekNumber)-Number(b.weekNumber));
   const renderWeek=(weekValue)=>{
-    const stat=stats.find(st=>String(st.weekNumber)===String(weekValue)),detail=$("weekDetail");if(!stat||!detail)return;
-    document.querySelectorAll(".week-btn").forEach(b=>b.classList.toggle("selected",String(b.dataset.week)===String(weekValue)));
+    const idx=sortedStats.findIndex(st=>String(st.weekNumber)===String(weekValue)),detail=$("weekDetail");
+    if(idx<0||!detail)return;
+    const stat=sortedStats[idx];
+    document.querySelectorAll(".week-btn").forEach(b=>{
+      const on=String(b.dataset.week)===String(weekValue);
+      b.classList.toggle("selected",on);
+      if(on)b.scrollIntoView({block:"nearest",inline:"center"});
+    });
     const raw=obj(stat.stats)?stat.stats:{};
-    const rows=Object.entries(raw).map(([key,val])=>{
-      const value=Array.isArray(val)?val[0]:val, points=Array.isArray(val)?val[1]:null;
-      return {key,value,points};
-    }).filter(x=>x.value!==0&&x.value!==null&&x.value!==undefined&&x.value!=="");
-    const preferred=["mins_played","goals","goal_assist","saves","touches","passes","accurate_passes","key_passes","effective_clearance","ball_recovery","won_contest","pen_area_entries","shots","shots_on_target","yellow_card","red_card","goals_conceded","poss_lost_all","marca_points"];
-    rows.sort((a,b)=>{const ai=preferred.indexOf(a.key),bi=preferred.indexOf(b.key);return(ai<0?999:ai)-(bi<0?999:bi)});
-    detail.innerHTML='<div class="week-title"><div><b>Jornada '+esc(stat.weekNumber)+'</b>'+(stat.isInIdealFormation?'<span class="ideal">★ Titular ideal</span>':"")+'</div><strong>'+esc(stat.totalPoints??0)+' pts</strong></div>'+
-      '<div class="week-stats">'+rows.map(x=>'<div class="week-stat"><span>'+esc(tr(x.key))+'</span><b>'+esc(String(x.value))+'</b>'+(x.points!==null&&x.points!==0?'<em>'+(x.points>0?"+":"")+esc(String(x.points))+' pts</em>':"")+'</div>').join("")+'</div>';
+    const rows=Object.entries(raw).map(([key,val])=>({key,value:Array.isArray(val)?val[0]:val,points:Array.isArray(val)?num(val[1]):null}))
+      .filter(x=>x.value!==0&&x.value!==null&&x.value!==undefined&&x.value!=="");
+    const groups=new Map();
+    rows.forEach(r=>{const g=weekGroup(r.key);if(!groups.has(g.id))groups.set(g.id,{name:g.name,rows:[]});groups.get(g.id).rows.push(r)});
+    const ordered=[...WEEK_GROUPS.map(g=>g.id),"other"].filter(id=>groups.has(id)).map(id=>groups.get(id));
+    ordered.forEach(g=>{
+      g.rows.sort((a,b)=>{const ai=WEEK_ORDER.indexOf(a.key),bi=WEEK_ORDER.indexOf(b.key);return(ai<0?999:ai)-(bi<0?999:bi)||Math.abs(b.points||0)-Math.abs(a.points||0)});
+      g.total=g.rows.reduce((s,r)=>s+(r.points||0),0);
+    });
+    const total=num(stat.totalPoints)??0;
+    const minsRaw=raw.mins_played,mins=Array.isArray(minsRaw)?minsRaw[0]:minsRaw;
+    const arrow=(step,label,symbol,disabled)=>'<button type="button" class="wk-arrow" data-step="'+step+'" aria-label="'+label+'"'+(disabled?" disabled":"")+'>'+symbol+'</button>';
+    detail.innerHTML=
+      '<div class="wk-head"><div class="wk-nav">'+arrow(-1,"Jornada anterior","←",idx===0)+
+        '<div class="wk-name"><b>Jornada '+esc(stat.weekNumber)+'</b><span>'+(mins!==undefined&&mins!==null&&mins!==""?esc(String(mins))+" min":"Sin minutos")+(stat.isInIdealFormation?' · <i class="ideal">★ Titular ideal</i>':"")+'</span></div>'+
+        arrow(1,"Jornada siguiente","→",idx===sortedStats.length-1)+'</div>'+
+        '<div class="wk-total '+ptsClass(total)+'"><b>'+fmtPts(total)+'</b><span>puntos</span></div></div>'+
+      (ordered.length
+        ?'<div class="wk-groups">'+ordered.map(g=>'<section class="wk-group"><header><h4>'+esc(g.name)+'</h4>'+(g.total?'<span class="'+ptsClass(g.total)+'">'+fmtPts(g.total)+' pts</span>':"")+'</header>'+
+            g.rows.map(r=>'<div class="wk-row"><span>'+esc(tr(r.key))+'</span><b>'+esc(String(r.value))+'</b><em class="'+(r.points?ptsClass(r.points):"")+'">'+(r.points?fmtPts(r.points):"")+'</em></div>').join("")+'</section>').join("")+'</div>'
+        :'<div class="empty">Sin estadísticas registradas en esta jornada.</div>');
+    detail.querySelectorAll(".wk-arrow").forEach(b=>b.onclick=()=>{const n=sortedStats[idx+Number(b.dataset.step)];if(n)renderWeek(n.weekNumber)});
   };
   if(stats.length){
-    const sorted=[...stats].sort((a,b)=>Number(a.weekNumber)-Number(b.weekNumber));
-    renderWeek(sorted[sorted.length-1].weekNumber);
+    renderWeek(sortedStats[sortedStats.length-1].weekNumber);
     $("modalContent").querySelectorAll(".week-btn").forEach(b=>b.onclick=()=>renderWeek(b.dataset.week));
+    // Al abrir la pestaña, centrar la jornada seleccionada en la tira (estaba oculta al renderizar)
+    $("modalContent").querySelector('[data-tab="weeks"]')?.addEventListener("click",()=>setTimeout(()=>$("modalContent").querySelector(".week-btn.selected")?.scrollIntoView({block:"nearest",inline:"center"}),0));
   }
   $("modalContent").querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
     $("modalContent").querySelectorAll("[data-tab]").forEach(x=>x.classList.remove("active"));
