@@ -2,7 +2,7 @@
 
 Aplicación web para explorar los datos de **LALIGA Fantasy** y gestionar tu cuenta desde un panel propio: buscador de jugadores, estadísticas por jornada, comparador, calendario, mercado, analizador de cláusulas, alineación y recompensa diaria. Es una web estática (un solo `index.html`) con tres funciones Node.js desplegadas en Vercel.
 
-Demo: https://fantasy-xi-eight.vercel.app/
+Demo: https://laguia-fantasy-xi-eight.vercel.app/
 
 > **Proyecto no oficial.** No está afiliado a LALIGA ni a futbolfantasy.com. Usa la API privada de la app móvil de LALIGA Fantasy, que no está documentada y puede cambiar sin aviso. Úsalo solo con tu propia cuenta.
 
@@ -19,7 +19,6 @@ Demo: https://fantasy-xi-eight.vercel.app/
 | **Mi Alineación** | Editor del once titular real: elige liga, formación y los 11 puestos. | Sí |
 | **Olvidados** | Jugadores marcados como `out_of_league`, que no aparecen en el resto de la web. | No |
 | **Comparador** | Compara minutos, puntos y regularidad positiva de varios jugadores. | No |
-| **Explorador API** | Herramientas para consultar los endpoints públicos. | No |
 
 ### Ficha del jugador
 
@@ -41,93 +40,17 @@ Al abrir un jugador se muestra una ventana con cuatro pestañas: **Resumen**, **
 
 Tema oscuro y plano, responsive, con barra de navegación inferior en móvil. Las ventanas, fichas y listas aparecen con transiciones suaves; si el sistema tiene activado el movimiento reducido, se desactivan.
 
----
-
-## Arquitectura
-
-```
-Navegador ──► /api/laliga       ──► fantasy-api.llt-services.com        (lectura pública, lista permitida)
-          ├─► /api/auth         ──► login.laliga.es + fantasy-api…      (sesión, lecturas y escrituras privadas)
-          └─► /api/titularidad  ──► futbolfantasy.com + fantasy-api…    (probabilidad de titularidad)
-```
-
-```
-.
-├── index.html            Aplicación completa (HTML, CSS y JavaScript sin dependencias ni build)
-├── api/
-│   ├── laliga.js         Proxy de solo lectura para los endpoints públicos
-│   ├── auth.js           Inicio de sesión OAuth, proxy privado de lectura y escritura con confirmación
-│   └── titularidad.js    Lee las probabilidades de futbolfantasy.com y las empareja con los jugadores
-├── vercel.json           Duración máxima (30 s) de las tres funciones
-└── README.md
-```
-
-No hay `package.json`, dependencias ni variables de entorno: las funciones solo usan `fetch` y `crypto` de Node (se requiere Node 18 o superior, que Vercel ya ofrece).
-
-### Funciones
-
-| Función | Método | Qué hace |
-|---|---|---|
-| `/api/laliga?path=…` | GET | Reenvía a la API de LALIGA solo las rutas de la lista permitida pública. |
-| `/api/auth?provider=google` | GET | Inicia el flujo OAuth y redirige al login oficial. |
-| `/api/auth` | GET / POST / DELETE | Estado de sesión, canje del código de login y cierre de sesión. |
-| `/api/auth?path=…` | GET / POST | Lecturas privadas y escrituras con confirmación (ver Seguridad). |
-| `/api/titularidad` | GET | Devuelve `{ players: { "<idLaLiga>": { p, w, rival, home } } }`. |
-
----
-
-## Despliegue
-
-1. Importa el repositorio en Vercel.
-2. No hace falta comando de build ni variables de entorno.
-3. Despliega y abre la URL que te da Vercel.
-
-Para probarlo en local puedes usar la CLI de Vercel (`npx vercel dev`). Las cookies de sesión son `Secure`, así que el login completo solo es fiable sobre HTTPS.
-
----
-
 ## Inicio de sesión con Google
 
 Usa **Authorization Code + PKCE** contra el B2C de LALIGA. No se pide ni se guarda ninguna contraseña, y los tokens viven en cookies `HttpOnly` que el JavaScript de la página no puede leer.
 
 > **¡No inicies sesión por teléfono!** Al hacerlo se abre la app oficial de LALIGA Fantasy y el flujo se interrumpe. La web muestra este aviso cada vez que abres la ventana de login. Inicia sesión desde un ordenador.
 
-1. Abre las **herramientas de desarrollador** (F12), ve a **Red / Network** y activa **Conservar registro / Preserve log**. Hazlo *antes* de iniciar sesión para que la redirección no se pierda.
-2. Pulsa **Iniciar sesión → Continuar con Google** y completa el acceso en la página oficial.
-3. Al terminar, busca en Network la última petición, que empieza por `authredirect://com.lfp.laligafantasy` y suele aparecer como cancelada.
-4. Copia su URL completa (o el valor de `Location` de las cabeceras) y pégala en el formulario con **Completar login**.
-5. El servidor comprueba el `state`, canjea el código con el `code_verifier` original y verifica la cuenta con `GET /v4/user/me`.
-
-La URL contiene un código de un solo uso: no la publiques ni la compartas. Si caduca o falla, empieza de nuevo desde el paso 2.
-
 **Sesión y renovación.** Tras el primer login la sesión se renueva sola con el refresh token mientras uses la web (cookie de renovación de unos 30 días que se renueva cada vez). Si pasas más tiempo sin entrar del que dura ese token, hay que repetir el login. Los pasos de copiar la redirección no se pueden evitar: el cliente de LALIGA solo acepta `authredirect://` como destino.
-
-| Cookie | Contenido | Duración |
-|---|---|---|
-| `lf_session` | Token de acceso | El que indique el token (~24 h) |
-| `lf_refresh` | Token de renovación | ~30 días, renovado en cada uso |
-| `lf_oauth_state`, `lf_oauth_verifier`, `lf_oauth_nonce` | Datos temporales del login | 15 min |
-
-Todas son `Secure; HttpOnly; SameSite=Strict` (las temporales, `Lax`) con ámbito `/api/auth`.
-
----
 
 ## Recompensa diaria
 
 El botón **Recoger monedas** reclama la recompensa directamente desde la web. El flujo sigue este orden: **comprobar → cobrar → parar**.
-
-1. `GET /v1/competition/1/daily-reward` — catálogo con el importe y el límite diario (`dailyLimit`, actualmente 2 al día; si no responde se asume 2).
-2. `GET /v1/competition/1/league/{liga}/team/{equipo}/check-daily-reward` — devuelve `dailyRewardsRedeemed`. Un `400` con `errorCode 050.01.04` («Team daily reward limit reached») **no es un error**: significa que ya está cobrada y es la señal de parar.
-3. `POST /v1/competition/1/league/{liga}/team/daily-reward` — se envía una vez por cada recompensa pendiente (límite menos cobradas), con el cuerpo `{"rewardedAdType":"dailyreward","rewardedAd":1,"teamId":"<id como texto>"}`.
-
-Detalles que importan:
-
-- La ruta usa `league/team` **en singular** y no lleva el `teamId` en la URL; el `teamId` va como texto en el cuerpo. `rewardedAd: 1` es solo una marca que la API no verifica; LALIGA podría empezar a exigir la prueba del anuncio en cualquier momento.
-- Importes: 100.000 € (estándar) o 200.000 € (premium) por liga y día, con eventos de 500.000 € o 1.000.000 €. Se reinicia a medianoche, hora de Madrid.
-- El POST no devuelve el importe, así que la web consulta tu saldo (`GET …/teams/{teamId}/money`) antes y después y muestra la diferencia.
-- Se pide **una sola confirmación** para todos los cobros de esa pulsación; el servidor sigue exigiendo preparar y confirmar cada petición.
-
----
 
 ## Titularidad (futbolfantasy.com)
 
@@ -148,39 +71,6 @@ Detalles que importan:
 - **Sin acciones automáticas.** Pujas, pagos, alineaciones y recompensas necesitan siempre una confirmación del usuario.
 - **Datos sensibles.** Los tokens nunca llegan al JavaScript del navegador y no se guardan en ningún almacenamiento. Lo único que se guarda en `localStorage` es una caché de la lista de equipos (`lf_teams_cache_v1`).
 
----
-
-## Endpoints
-
-### Públicos (`/api/laliga`)
-
-| Ruta |
-|---|
-| `/v3/teams-master` |
-| `/v1/competition/1/players` |
-| `/v1/competition/1/player/{id}` |
-| `/v1/competition/1/player/{id}/market-value` |
-| `/v1/competition/1/week/current` |
-| `/v1/competition/1/calendar` |
-| `/stats/v1/competition/1/stats/week/{semana}` |
-
-### Privados de lectura (`/api/auth?path=…`)
-
-Usuario (`/v4/user/me`), ligas, clasificación, equipos de una liga, movimientos, dinero, alineación actual y por jornada, mercado, ofertas, ficha de un jugador en una liga, escudo de cláusula (`check-shield`), `check-daily-reward` y el catálogo `daily-reward`.
-
-### Privados de escritura
-
-| Operación | Ruta |
-|---|---|
-| Pujar | `POST /v1/competition/1/league/{liga}/market/{mercado}/bid` |
-| Pagar cláusula | `POST /v1/competition/1/league/{liga}/buyout/{playerTeam}/pay` |
-| Guardar alineación | `PUT /v1/competition/1/teams/{equipo}/lineup` |
-| Recompensa diaria | `POST /v1/competition/1/league/{liga}/team/daily-reward` |
-
-Las acciones con dinero son definitivas: revisa jugador, liga, importe y saldo antes de confirmar. Si una respuesta no confirma el éxito, actualiza mercado, saldo o plantilla antes de reintentar; no repitas la operación a ciegas.
-
----
-
 ## Limitaciones conocidas
 
 - La API es privada y no documentada: cualquier ruta, campo o regla puede cambiar. Las rutas de usuario, ligas, clasificación y plantillas están comprobadas con cuenta real; mercado, movimientos y alineación conviene seguir verificándolos.
@@ -193,12 +83,8 @@ Las acciones con dinero son definitivas: revisa jugador, liga, importe y saldo a
 
 | Síntoma | Qué hacer |
 |---|---|
-| «La URL parece cortada» o «El código está incompleto» | Copia de nuevo la URL completa desde Network; no uses una fila intermedia (`https://…`), sino la de `authredirect://`. |
-| «El state no coincide» | Pega la URL del mismo intento de login, no de uno anterior. |
-| El login no aparece en Network | Abre F12 y activa *Preserve log* antes de iniciar sesión. |
 | «Equipo no indicado» en una ficha | Recarga la lista de equipos; si persiste, abre «JSON original» y revisa qué campo de equipo trae. |
 | «No disponible ahora mismo» en la titularidad | Abre `/api/titularidad` y mira el error: suele ser que futbolfantasy.com cambió su HTML o no respondió. |
-| El botón de recompensa no hace nada | Comprueba que tienes la sesión activa y que no estén ya cobradas las recompensas del día. |
 
 ## Aviso legal
 
