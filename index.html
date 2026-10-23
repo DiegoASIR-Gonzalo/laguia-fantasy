@@ -1134,29 +1134,10 @@ button:active{transform:translateY(1px)}
 
 <main class="wrap">
   <section id="home" class="section active">
-    <div class="hero">
-      <h1>Busca cualquier jugador</h1>
+  <div class="hero">
+      <h1>Inicio de la página</h1>
       <p>Escribe su nombre, apodo, equipo o ID. La lista de jugadores se descarga una vez y después la búsqueda es instantánea.</p>
-    </div>
-    <div class="search-box">
-      <div class="searchline">
-        <input id="search" autocomplete="off" placeholder="Buscar: Mbappé, Vinícius, Real Madrid…">
-        <button id="reload" class="primary">Actualizar</button>
-      </div>
-      <div id="loadState" class="statusline loading"><span><span class="dot"></span>Cargando jugadores…</span><span id="count"></span></div>
-      <section class="current-week-panel" aria-labelledby="currentWeekTitle">
-        <div class="current-week-head">
-          <div>
-            <div class="current-week-kicker">Fantasy</div>
-            <div id="currentWeekTitle" class="current-week-title">Jornada actual</div>
-          </div>
-          <div id="currentWeekBadge" class="current-week-badge">Cargando…</div>
-        </div>
-        <div id="currentWeekMeta" class="current-week-meta"></div>
-        <div id="currentWeekState" class="current-week-state" aria-live="polite"></div>
-        <div class="current-week-note">Información obtenida de la jornada que está activa ahora mismo en LALIGA Fantasy.</div>
-      </section>
-      <div id="results" class="results"></div>
+  </div>
       <section class="best-panel best-carousel-panel" aria-labelledby="bestTitle">
         <div class="best-head best-carousel-head">
           <div>
@@ -1189,6 +1170,26 @@ button:active{transform:translateY(1px)}
         </div>
       </section>
       <div class="notice">Pulsa un jugador para abrir su ficha completa.</div>
+    <div class="search-box">
+      <div class="searchline">
+        <input id="search" autocomplete="off" placeholder="Buscar: Mbappé, Vinícius, Real Madrid…">
+        <button id="reload" class="primary">Actualizar</button>
+      </div>
+      <div id="loadState" class="statusline loading"><span><span class="dot"></span>Cargando jugadores…</span><span id="count"></span></div>
+      <section class="current-week-panel" aria-labelledby="currentWeekTitle">
+        <div class="current-week-head">
+          <div>
+            <div class="current-week-kicker">Fantasy</div>
+            <div id="currentWeekTitle" class="current-week-title">Jornada actual</div>
+          </div>
+          <div id="currentWeekBadge" class="current-week-badge">Cargando…</div>
+        </div>
+        <div id="currentWeekMeta" class="current-week-meta"></div>
+        <div id="currentWeekState" class="current-week-state" aria-live="polite"></div>
+        <div class="current-week-note">Información obtenida de la jornada que está activa ahora mismo en LALIGA Fantasy.</div>
+      </section>
+      <div id="results" class="results"></div>
+
     </div>
   </section>
 
