@@ -980,6 +980,44 @@ button:active{transform:translateY(1px)}
 .start-prob .sp-hi,.start-prob .sp-hi~.sp-bar{color:var(--green)}
 .start-prob .sp-mid,.start-prob .sp-mid~.sp-bar{color:var(--gold)}
 .start-prob .sp-lo,.start-prob .sp-lo~.sp-bar{color:var(--red)}
+
+/* ===== Aviso de inicio de sesión ===== */
+@keyframes warnIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes warnPulse{0%,100%{box-shadow:0 0 0 0 rgba(242,195,0,0)}50%{box-shadow:0 0 0 5px rgba(242,195,0,.2)}}
+.auth-warning{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:0 0 16px;background:rgba(242,195,0,.1);border:1px solid var(--gold);border-left-width:4px;color:#fff;font-size:14px;line-height:1.4}
+.auth-warning span{font-size:18px;line-height:1.1;color:var(--gold)}
+.modal:not(.hidden) .auth-warning{animation:warnIn .5s .2s var(--ease) both,warnPulse 1.6s .8s 2}
+
+/* ===== Filtro por posición (cláusulas y bloqueados) ===== */
+.pos-filter{display:flex;flex-wrap:wrap;gap:2px;width:100%}
+.clause-tools .pos-chip{flex:1 1 auto;width:auto;padding:9px 12px;background:var(--s2);color:var(--muted);border:1px solid var(--ln);font-size:13px;cursor:pointer;transition:background .2s var(--ease),color .2s var(--ease),border-color .2s var(--ease)}
+.pos-chip small{margin-left:6px;opacity:.7;font-size:11px}
+.clause-tools .pos-chip:hover{background:var(--s3);color:#fff}
+.clause-tools .pos-chip.active{background:var(--red);border-color:var(--red);color:#fff}
+
+/* ===== Aparición suave y pulida de ventanas, fichas y listas ===== */
+@keyframes veilIn{from{opacity:0;backdrop-filter:blur(0)}to{opacity:1;backdrop-filter:blur(4px)}}
+@keyframes winIn{from{opacity:0;transform:translateY(24px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes rowIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.modal:not(.hidden){animation:veilIn .3s ease both}
+.modal:not(.hidden) .dialog{animation:winIn .45s cubic-bezier(.16,1,.3,1) both}
+/* El contenido se escalona cada vez que se carga una ficha nueva dentro de la ventana */
+#modalContent>*{animation:riseIn .5s var(--ease) both}
+#modalContent>:nth-child(2){animation-delay:.06s}
+#modalContent>:nth-child(3){animation-delay:.12s}
+#modalContent>:nth-child(4){animation-delay:.18s}
+#modalContent .highlight>*{animation:riseIn .45s var(--ease) both}
+#modalContent .highlight>:nth-child(2){animation-delay:.1s}
+#modalContent .highlight>:nth-child(3){animation-delay:.15s}
+#modalContent .highlight>:nth-child(4){animation-delay:.2s}
+#modalContent .highlight>:nth-child(5){animation-delay:.25s}
+.modal-body [data-view]:not(.hidden){animation:fadeIn .3s ease both}
+.wk-head,.wk-group{animation:riseIn .32s var(--ease) both}
+.wk-group:nth-child(2){animation-delay:.04s}.wk-group:nth-child(3){animation-delay:.08s}.wk-group:nth-child(4){animation-delay:.12s}
+#lineupEditor:not(.hidden){animation:secIn .45s var(--ease) both}
+[data-ct="list"]>*{animation:fadeIn .2s ease both}
+[data-ct="list"].is-first>*{animation:rowIn .4s var(--ease) both;animation-delay:calc(var(--i,0)*30ms)}
 </style>
 </head>
 <body>
@@ -1287,6 +1325,7 @@ button:active{transform:translateY(1px)}
     </div>
     <div class="auth-box">
       <div id="loginPanel">
+        <div class="auth-warning" role="alert"><span aria-hidden="true">⚠</span><strong>¡No inicies sesión por teléfono, te saltará la app oficial!</strong></div>
         <h2>Inicia sesión</h2>
         <p>Conéctate con la cuenta que usas en LALIGA Fantasy. La autenticación ocurre en la página oficial.</p>
         <div class="login-choice" id="loginChoices">
@@ -3236,7 +3275,7 @@ const PRIVATE_NAME_KEYS=["managerName","teamName","name","nickname","displayName
 function privateClauseItem(entry,team,own){
   const info=privatePlayerInfo(entry);
   const playerTeamId=privateDirectField(entry,["playerTeamId","player_team_id"])??privateDirectField(entry?.playerTeam,["playerTeamId","player_team_id","id"])??privateDirectField(entry?.playerTeamData,["playerTeamId","player_team_id","id"]);
-  return {entry,info,teamId:team.id,teamName:team.name,own,playerTeamId,clauseAmount:privateIntegerMoney(info.clause),lock:privateClauseLock(entry),position:privateField(info.master,["positionName","position","positionId","role"])};
+  return {entry,info,teamId:team.id,teamName:team.name,own,playerTeamId,clauseAmount:privateIntegerMoney(info.clause),lock:privateClauseLock(entry),position:privateField(info.master,["positionName","position","positionId","role"]),pos:lineupEditorPosition(entry)||lineupEditorPosition(info.master)};
 }
 async function loadPrivateClauseData(){
   const leagueId=privateLeagueId(selectedPrivateLeague);
@@ -3268,16 +3307,17 @@ async function loadPrivateClauseData(){
   selectedPrivateClauseData={leagueId,items,failed,teams:teams.length};
   return selectedPrivateClauseData;
 }
+const PRIVATE_POS_LABELS={goalkeeper:"Portero",defender:"Defensa",midfield:"Centrocampista",striker:"Delantero"};
 function privateClauseRowHtml(item,index,mode){
   const info=item.info;
   const avatar=info.image?'<img class="private-player-avatar" src="'+esc(info.image)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<span class="private-player-avatar-fallback" aria-hidden="true"></span>';
-  const meta=["Manager: "+item.teamName+(item.own?" (tu equipo)":""),item.position!==null?String(item.position):null].filter(Boolean).join(" · ");
+  const meta=["Manager: "+item.teamName+(item.own?" (tu equipo)":""),item.pos?PRIVATE_POS_LABELS[item.pos]:(item.position!==null?String(item.position):null)].filter(Boolean).join(" · ");
   const locked=mode==="locked"&&item.lock;
   const lockLine=locked?'<span class="clause-lock">'+PRIVATE_LOCK_ICON+'<span><b>Bloqueada hasta</b> el '+item.lock.date+' a las '+item.lock.time+'</span></span>':'';
   const side=locked
     ?'<strong>'+PRIVATE_LOCK_ICON+esc(item.lock.remaining)+'</strong><small>'+esc(item.clauseAmount?"Cláusula "+privateMoney(item.clauseAmount):"Cláusula n/d")+'</small>'
     :'<strong>'+esc(privateMoney(item.clauseAmount))+'</strong><small>'+esc(info.price===null?"Valor n/d":"Valor "+privateMoney(info.price))+'</small>';
-  return '<div class="private-roster-entry'+(locked?' is-clause-locked':'')+'"><button type="button" class="private-player-row private-player-open" data-ct-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta)+'</span>'+lockLine+'</span></span><span class="private-player-side">'+side+'</span></button></div>';
+  return '<div class="private-roster-entry'+(locked?' is-clause-locked':'')+'" style="--i:'+Math.min(index,12)+'"><button type="button" class="private-player-row private-player-open" data-ct-index="'+index+'"><span class="private-player-main">'+avatar+'<span class="private-player-main-text"><span class="private-player-name">'+esc(info.name)+'</span><span class="private-player-meta">'+esc(meta)+'</span>'+lockLine+'</span></span><span class="private-player-side">'+side+'</span></button></div>';
 }
 function renderPrivateClauseTool(hostId,mode,data,onRefresh){
   const host=$(hostId),isLocked=mode==="locked";
@@ -3285,21 +3325,31 @@ function renderPrivateClauseTool(hostId,mode,data,onRefresh){
   const options=isLocked
     ?[["desc","Más tiempo de bloqueo restante primero"],["asc","Menos tiempo de bloqueo restante primero"]]
     :[["desc","Cláusula: de mayor a menor"],["asc","Cláusula: de menor a mayor"]];
-  const positions=[...new Set(items.map(it=>it.position).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=="").map(String))].sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
-  host.innerHTML='<div class="clause-tools"><label>Ordenar<select data-ct="sort">'+options.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join("")+'</select></label><label>Posición<select data-ct="position"><option value="">Todas las posiciones</option>'+positions.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join("")+'</select></label><label class="clause-search">Filtrar<input type="search" data-ct="q" autocomplete="off" placeholder="Jugador o manager…"></label><button type="button" data-ct="refresh">Actualizar</button></div><div class="clause-summary" data-ct="sum" aria-live="polite"></div><div data-ct="list"></div>';
-  const sortEl=host.querySelector('[data-ct="sort"]'),qEl=host.querySelector('[data-ct="q"]'),positionEl=host.querySelector('[data-ct="position"]'),listEl=host.querySelector('[data-ct="list"]'),sumEl=host.querySelector('[data-ct="sum"]');
+  const posGroups=[["","Todas"],["goalkeeper","Porteros"],["defender","Defensas"],["midfield","Medios"],["striker","Delanteros"]];
+  const posChips='<div class="pos-filter" role="group" aria-label="Filtrar por posición en el campo">'+posGroups.map(g=>{
+    const n=g[0]?items.filter(it=>it.pos===g[0]).length:items.length;
+    return '<button type="button" class="pos-chip'+(g[0]?'':' active')+'" data-pos="'+g[0]+'" aria-pressed="'+(g[0]?'false':'true')+'">'+g[1]+'<small>'+n+'</small></button>';
+  }).join("")+'</div>';
+  host.innerHTML='<div class="clause-tools"><label>Ordenar<select data-ct="sort">'+options.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join("")+'</select></label>'+posChips+'<label class="clause-search">Filtrar<input type="search" data-ct="q" autocomplete="off" placeholder="Jugador o manager…"></label><button type="button" data-ct="refresh">Actualizar</button></div><div class="clause-summary" data-ct="sum" aria-live="polite"></div><div data-ct="list"></div>';
+  const sortEl=host.querySelector('[data-ct="sort"]'),qEl=host.querySelector('[data-ct="q"]'),listEl=host.querySelector('[data-ct="list"]'),sumEl=host.querySelector('[data-ct="sum"]');
+  let posFilter="";
   const draw=()=>{
-    const q=privateNormalizeName(qEl.value),dir=sortEl.value,position=positionEl.value;
-    const rows=items.filter(it=>(!q||privateNormalizeName(it.info.name+" "+it.teamName).includes(q))&&(!position||String(it.position)===position));
+    const q=privateNormalizeName(qEl.value),dir=sortEl.value;
+    const rows=items.filter(it=>(!posFilter||it.pos===posFilter)&&(!q||privateNormalizeName(it.info.name+" "+it.teamName).includes(q)));
     rows.sort((a,b)=>{const av=isLocked?a.lock.ms:a.clauseAmount,bv=isLocked?b.lock.ms:b.clauseAmount;return dir==="asc"?av-bv:bv-av});
     sumEl.textContent=(isLocked?rows.length+" de "+items.length+" jugadores con cláusula bloqueada":rows.length+" de "+items.length+" jugadores con cláusula pagable")+(data.failed?" · No se pudieron leer "+data.failed+" plantilla"+(data.failed===1?"":"s"):"");
     listEl.innerHTML=rows.length?rows.map((it,i)=>privateClauseRowHtml(it,i,mode)).join(""):'<div class="private-empty">'+(items.length?"Ningún jugador coincide con el filtro.":(isLocked?"Ahora mismo no hay jugadores con la cláusula bloqueada.":"No hay jugadores con cláusula pagable en esta liga."))+'</div>';
     listEl.querySelectorAll("[data-ct-index]").forEach(btn=>btn.addEventListener("click",()=>openPrivatePlayer(rows[Number(btn.dataset.ctIndex)].entry)));
   };
   sortEl.addEventListener("change",draw);
+  host.querySelectorAll(".pos-chip").forEach(chip=>chip.addEventListener("click",()=>{
+    posFilter=chip.dataset.pos;
+    host.querySelectorAll(".pos-chip").forEach(c=>{c.classList.toggle("active",c===chip);c.setAttribute("aria-pressed",String(c===chip))});
+    draw();
+  }));
   qEl.addEventListener("input",draw);
-  positionEl.addEventListener("change",draw);
   host.querySelector('[data-ct="refresh"]').addEventListener("click",onRefresh);
+  listEl.classList.add("is-first");setTimeout(()=>listEl.classList.remove("is-first"),900); // aparición escalonada solo en la carga inicial
   draw();
   return items.length;
 }
@@ -3696,7 +3746,6 @@ function setAuthUi(data){
   }
 }
 function showAuth(){
-  window.alert("¡No inicies sesion por telefono, te saltara la app oficial!");
   $("authModal").classList.remove("hidden");$("authModal").setAttribute("aria-hidden","false");
   checkAuth();
 }
