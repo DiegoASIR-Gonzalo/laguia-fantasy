@@ -971,6 +971,15 @@ button:active{transform:translateY(1px)}
 .wk-row b{text-align:right;font-weight:600}
 .wk-row em{font-style:normal;text-align:right;font-size:12px;color:var(--muted)}
 @media(max-width:620px){.wk-groups{columns:1}.wk-total b{font-size:22px}}
+
+/* ===== Titularidad próxima jornada (futbolfantasy) ===== */
+.highlight,.highlight.has-private-context{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.start-prob small{display:block;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.3}
+.start-prob .sp-bar{display:block;height:3px;margin-top:8px;background:var(--s3);color:inherit}
+.start-prob .sp-bar u{display:block;height:100%;background:currentColor;text-decoration:none;transition:width .4s var(--ease)}
+.start-prob .sp-hi,.start-prob .sp-hi~.sp-bar{color:var(--green)}
+.start-prob .sp-mid,.start-prob .sp-mid~.sp-bar{color:var(--gold)}
+.start-prob .sp-lo,.start-prob .sp-lo~.sp-bar{color:var(--red)}
 </style>
 </head>
 <body>
@@ -2329,11 +2338,55 @@ function initLineupEditor(){
 function scalar(v){if(v===null)return'<span style="color:#c8b7ff">No disponible</span>';if(typeof v==="boolean")return v?"Sí":"No";if(typeof v==="number")return v.toLocaleString("es-ES");return esc(v)}
 function mediaList(data,out=[]){if(Array.isArray(data)){data.slice(0,200).forEach(x=>mediaList(x,out));return out}if(obj(data))for(const[k,v]of Object.entries(data)){if(typeof v==="string"&&imgUrl(v)&&/(image|photo|avatar|logo|badge|crest|icon|picture|thumbnail|url)/i.test(k))out.push([k,v]);else if(obj(v))mediaList(v,out)}return out}
 function valuesTable(data){if(!Array.isArray(data)||!data.length||data.some(x=>!obj(x)||Array.isArray(x)))return null;const keys=[...new Set(data.flatMap(x=>Object.keys(x)))].slice(0,24);return'<div class="kv">'+keys.map(k=>'<div class="key">'+esc(tr(k))+'</div><div>'+esc(String(data[0]?.[k]??""))+'</div>').join("")+'</div>'}
+// Equipo de la ficha: nombre explícito, o lista maestra /v3/teams-master (por id o nombre), o la ficha ya cargada en la lista
+function resolveProfileTeam(data,m,tm){
+  const direct=tm?.name||tm?.shortName||first(data,["teamName","clubName"])||first(m,["teamName","clubName"]);
+  if(direct)return String(direct);
+  const t=teamForPlayer(m)||teamForPlayer(data)||(tm?teamForPlayer({team:tm}):null);
+  if(t)return t.name||t.shortName||"";
+  const id=m?.id??first(data,["id","playerId","player_id"]);
+  const cached=[...(players||[]),...forgottenPlayers].find(x=>String(x.id)===String(id));
+  return cached?.team||"";
+}
+
+// Probabilidad de titularidad de la próxima jornada (futbolfantasy.com, vía /api/titularidad; se cachea 15 min)
+let startProbCache=null;
+async function loadStartProbabilities(){
+  if(startProbCache&&Date.now()-startProbCache.ts<15*60*1000)return startProbCache.data;
+  try{
+    const r=await fetch("/api/titularidad",{headers:{Accept:"application/json"}});
+    if(!r.ok)throw Error("HTTP "+r.status);
+    const data=await r.json();
+    startProbCache={ts:Date.now(),data};
+    return data;
+  }catch{
+    startProbCache={ts:Date.now()-14*60*1000,data:null}; // si falla, se reintenta en ~1 min
+    return null;
+  }
+}
+async function fillStartProbability(id){
+  const tile=$("startProb");
+  if(!tile||id===null||id===undefined)return;
+  const data=await loadStartProbabilities();
+  if($("startProb")!==tile)return; // la ficha se cerró o cambió mientras cargaba
+  const label=tile.querySelector("span"),value=tile.querySelector("b"),note=tile.querySelector("small");
+  const e=data?.players?.[String(id)];
+  if(!data){value.textContent="—";note.textContent="No disponible ahora mismo";return}
+  if(!e||e.p===null||e.p===undefined){value.textContent="—";note.textContent=e?"futbolfantasy no publica dato":"Sin datos en futbolfantasy";return}
+  label.textContent=e.w?"Titular en la J"+e.w:"Titular próxima jornada";
+  value.className=e.p>=75?"sp-hi":e.p>=40?"sp-mid":"sp-lo";
+  value.textContent=e.p+"%";
+  const bar=document.createElement("i"),fill=document.createElement("u");
+  bar.className="sp-bar";fill.style.width=Math.max(0,Math.min(100,e.p))+"%";bar.appendChild(fill);
+  tile.insertBefore(bar,note);
+  note.textContent=(e.rival?"vs "+e.rival+(e.home===null||e.home===undefined?"":e.home?" · casa":" · fuera")+" · ":"")+"futbolfantasy";
+}
+
 function profileData(data){
   const m=obj(data?.playerMaster)?data.playerMaster:data;
   const tm=obj(m?.team)?m.team:null;
   const name=m?.nickname||m?.name||first(data,["nickname","name","fullName","displayName"])||"Jugador";
-  const team=tm?.name||tm?.shortName||first(data,["teamName","clubName"])||"Equipo no indicado";
+  const team=resolveProfileTeam(data,m,tm)||"Equipo no indicado";
   const position=m?.position||first(data,["position","positions","role"]);
   const avg=num(m?.averagePoints??first(data,["averagePoints","average_points","averageScore","averagePointsPerGame"]));
   const last=num(m?.lastSeasonPoints??first(data,["lastSeasonPoints","last_season_points","seasonPoints","points"]));
@@ -2362,7 +2415,8 @@ function renderPlayer(data,privateContext=null){
       '</div></div></div>'+
     '<div class="highlight'+(privateContext?' has-private-context':'')+'"><div><span>Puntos</span><b>'+(p.last===null?"—":p.last.toLocaleString("es-ES"))+'</b></div>'+
       '<div><span>Media de puntos</span><b class="green">'+(p.avg===null?"—":p.avg.toLocaleString("es-ES",{maximumFractionDigits:2}))+'</b></div>'+
-      '<div><span>'+(privateContext?'Precio en la liga':'Valor de mercado')+'</span><b class="gold">'+money(privateContext?(contextPrice===null?p.market:contextPrice):p.market)+'</b></div>'+(privateContext?'<div><span>Cláusula</span><b class="gold">'+(clause===null?'—':esc(money(clause)))+'</b></div>':'')+'</div>'+
+      '<div><span>'+(privateContext?'Precio en la liga':'Valor de mercado')+'</span><b class="gold">'+money(privateContext?(contextPrice===null?p.market:contextPrice):p.market)+'</b></div>'+(privateContext?'<div><span>Cláusula</span><b class="gold">'+(clause===null?'—':esc(money(clause)))+'</b></div>':'')+
+      '<div class="start-prob" id="startProb"><span>Titular próxima jornada</span><b>…</b><small>Consultando futbolfantasy…</small></div></div>'+
     (lock?privateLockBanner(lock):'')+
     '<div class="modal-tabs"><button class="active" data-tab="summary">Resumen</button>'+
       (stats.length?'<button data-tab="weeks">Por jornadas ('+stats.length+')</button>':"")+
@@ -2378,6 +2432,7 @@ function renderPlayer(data,privateContext=null){
     (media.length?'<div data-view="media" class="hidden"><div class="media-grid">'+media.slice(0,40).map(([k,v])=>'<div class="media-card"><img src="'+esc(v)+'" alt="" loading="lazy"><div>'+esc(tr(k))+'</div></div>').join("")+'</div></div>':"")+
     '<div data-view="json" class="hidden"><pre>'+esc(JSON.stringify(data,null,2))+'</pre></div></div>';
 
+  fillStartProbability(p.id);
   // ---- Estadísticas por jornada: agrupadas por categoría, con valor y puntos alineados ----
   const WEEK_ORDER=["mins_played","goals","goal_assist","shots","shots_on_target","key_passes","pen_area_entries","won_contest","touches","passes","accurate_passes","crosses","poss_lost_all","effective_clearance","ball_recovery","tackles","interceptions","saves","goals_conceded","yellow_card","red_card","marca_points"];
   const WEEK_GROUPS=[
@@ -2441,7 +2496,7 @@ function translatedTree(v,l=0){if(Array.isArray(v))return'<div>'+v.slice(0,300).
 function isImageValue(k,v){return typeof v==="string"&&isImageKey(k)&&imgUrl(v)}
 function isImageKey(k){return/(image|photo|avatar|logo|badge|crest|icon|picture|cover|thumbnail|url)/i.test(k)}
 function imageCard(k,v){return'<figure class="media-card"><img src="'+esc(v)+'" alt="" loading="lazy"><div>'+esc(tr(k))+'</div></figure>'}
-async function openPlayer(id,privateContext=null){if(!id){if(privateContext)openPrivatePlayer(privateContext);return}const cached=players?.find(p=>String(p.id)===String(id));$("modalTitle").textContent=cached?.name||"Jugador";$("modalRoute").textContent="/v1/competition/1/player/"+id;$("modalContent").innerHTML='<div class="modal-body"><div class="empty">Cargando ficha…</div></div>';$("modal").classList.remove("hidden");$("modal").setAttribute("aria-hidden","false");try{const r=await fetch(API+"?path="+encodeURIComponent("/v1/competition/1/player/"+encodeURIComponent(id)),{headers:{Accept:"application/json"},cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();const p=profileData(data);$("modalTitle").textContent=p.name;renderPlayer(data,privateContext)}catch(e){$("modalContent").innerHTML='<div class="modal-body"><div class="empty">No se pudo cargar la ficha del jugador.<br>'+esc(e.message)+'</div>'+(privateContext?'<div class="private-warning">Precio de la liga: '+esc(privatePlayerInfo(privateContext).price===null?'No disponible':privateMoney(privatePlayerInfo(privateContext).price))+' · Cláusula: '+esc(privatePlayerInfo(privateContext).clause===null?'No disponible':privateMoney(privatePlayerInfo(privateContext).clause))+'</div>':'')+'</div>'}}
+async function openPlayer(id,privateContext=null){if(!id){if(privateContext)openPrivatePlayer(privateContext);return}const cached=players?.find(p=>String(p.id)===String(id));$("modalTitle").textContent=cached?.name||"Jugador";$("modalRoute").textContent="/v1/competition/1/player/"+id;$("modalContent").innerHTML='<div class="modal-body"><div class="empty">Cargando ficha…</div></div>';$("modal").classList.remove("hidden");$("modal").setAttribute("aria-hidden","false");try{const teamsReady=teams?null:loadTeams();const r=await fetch(API+"?path="+encodeURIComponent("/v1/competition/1/player/"+encodeURIComponent(id)),{headers:{Accept:"application/json"},cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const data=await r.json();if(teamsReady)await teamsReady;const p=profileData(data);$("modalTitle").textContent=p.name;renderPlayer(data,privateContext)}catch(e){$("modalContent").innerHTML='<div class="modal-body"><div class="empty">No se pudo cargar la ficha del jugador.<br>'+esc(e.message)+'</div>'+(privateContext?'<div class="private-warning">Precio de la liga: '+esc(privatePlayerInfo(privateContext).price===null?'No disponible':privateMoney(privatePlayerInfo(privateContext).price))+' · Cláusula: '+esc(privatePlayerInfo(privateContext).clause===null?'No disponible':privateMoney(privatePlayerInfo(privateContext).clause))+'</div>':'')+'</div>'}}
 
 // ===== Comparador de jugadores =====
 const compareDetails=new Map();
