@@ -3285,11 +3285,12 @@ function renderPrivateClauseTool(hostId,mode,data,onRefresh){
   const options=isLocked
     ?[["desc","Más tiempo de bloqueo restante primero"],["asc","Menos tiempo de bloqueo restante primero"]]
     :[["desc","Cláusula: de mayor a menor"],["asc","Cláusula: de menor a mayor"]];
-  host.innerHTML='<div class="clause-tools"><label>Ordenar<select data-ct="sort">'+options.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join("")+'</select></label><label class="clause-search">Filtrar<input type="search" data-ct="q" autocomplete="off" placeholder="Jugador o manager…"></label><button type="button" data-ct="refresh">Actualizar</button></div><div class="clause-summary" data-ct="sum" aria-live="polite"></div><div data-ct="list"></div>';
-  const sortEl=host.querySelector('[data-ct="sort"]'),qEl=host.querySelector('[data-ct="q"]'),listEl=host.querySelector('[data-ct="list"]'),sumEl=host.querySelector('[data-ct="sum"]');
+  const positions=[...new Set(items.map(it=>it.position).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=="").map(String))].sort((a,b)=>a.localeCompare(b,"es",{numeric:true}));
+  host.innerHTML='<div class="clause-tools"><label>Ordenar<select data-ct="sort">'+options.map(o=>'<option value="'+o[0]+'">'+o[1]+'</option>').join("")+'</select></label><label>Posición<select data-ct="position"><option value="">Todas las posiciones</option>'+positions.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join("")+'</select></label><label class="clause-search">Filtrar<input type="search" data-ct="q" autocomplete="off" placeholder="Jugador o manager…"></label><button type="button" data-ct="refresh">Actualizar</button></div><div class="clause-summary" data-ct="sum" aria-live="polite"></div><div data-ct="list"></div>';
+  const sortEl=host.querySelector('[data-ct="sort"]'),qEl=host.querySelector('[data-ct="q"]'),positionEl=host.querySelector('[data-ct="position"]'),listEl=host.querySelector('[data-ct="list"]'),sumEl=host.querySelector('[data-ct="sum"]');
   const draw=()=>{
-    const q=privateNormalizeName(qEl.value),dir=sortEl.value;
-    const rows=items.filter(it=>!q||privateNormalizeName(it.info.name+" "+it.teamName).includes(q));
+    const q=privateNormalizeName(qEl.value),dir=sortEl.value,position=positionEl.value;
+    const rows=items.filter(it=>(!q||privateNormalizeName(it.info.name+" "+it.teamName).includes(q))&&(!position||String(it.position)===position));
     rows.sort((a,b)=>{const av=isLocked?a.lock.ms:a.clauseAmount,bv=isLocked?b.lock.ms:b.clauseAmount;return dir==="asc"?av-bv:bv-av});
     sumEl.textContent=(isLocked?rows.length+" de "+items.length+" jugadores con cláusula bloqueada":rows.length+" de "+items.length+" jugadores con cláusula pagable")+(data.failed?" · No se pudieron leer "+data.failed+" plantilla"+(data.failed===1?"":"s"):"");
     listEl.innerHTML=rows.length?rows.map((it,i)=>privateClauseRowHtml(it,i,mode)).join(""):'<div class="private-empty">'+(items.length?"Ningún jugador coincide con el filtro.":(isLocked?"Ahora mismo no hay jugadores con la cláusula bloqueada.":"No hay jugadores con cláusula pagable en esta liga."))+'</div>';
@@ -3297,6 +3298,7 @@ function renderPrivateClauseTool(hostId,mode,data,onRefresh){
   };
   sortEl.addEventListener("change",draw);
   qEl.addEventListener("input",draw);
+  positionEl.addEventListener("change",draw);
   host.querySelector('[data-ct="refresh"]').addEventListener("click",onRefresh);
   draw();
   return items.length;
@@ -3694,6 +3696,7 @@ function setAuthUi(data){
   }
 }
 function showAuth(){
+  window.alert("¡No inicies sesion por telefono, te saltara la app oficial!");
   $("authModal").classList.remove("hidden");$("authModal").setAttribute("aria-hidden","false");
   checkAuth();
 }
@@ -3766,3 +3769,23 @@ document.querySelectorAll("[data-section]").forEach(b=>b.addEventListener("click
 </script>
 </body>
 </html>
+
+
+/* ===== Animaciones suaves de aparición ===== */
+@keyframes fantasyModalFade{from{opacity:0}to{opacity:1}}
+@keyframes fantasyDialogEnter{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fantasyPlayerEnter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.modal:not(.hidden){animation:fantasyModalFade .22s ease-out both}
+.modal:not(.hidden)>.dialog{animation:fantasyDialogEnter .3s cubic-bezier(.2,.75,.25,1) both;transform-origin:center}
+.results>.player,.best-grid>.best-card,.lineup-picker-list>.lineup-picker-player,
+.private-league-grid>.private-league-card,.private-team-list>.private-team-card,
+.private-roster-entry,.private-market-listing,.private-activity-row,
+.clause-tools+[data-ct="sum"]+[data-ct="list"]>*{
+  animation:fantasyPlayerEnter .28s cubic-bezier(.2,.75,.25,1) both;
+}
+@media(prefers-reduced-motion:reduce){
+  .modal:not(.hidden),.modal:not(.hidden)>.dialog,.results>.player,.best-grid>.best-card,
+  .lineup-picker-list>.lineup-picker-player,.private-league-grid>.private-league-card,
+  .private-team-list>.private-team-card,.private-roster-entry,.private-market-listing,
+  .private-activity-row,.clause-tools+[data-ct="sum"]+[data-ct="list"]>*{animation:none!important}
+}
