@@ -3769,23 +3769,3 @@ document.querySelectorAll("[data-section]").forEach(b=>b.addEventListener("click
 </script>
 </body>
 </html>
-
-
-/* ===== Animaciones suaves de aparición ===== */
-@keyframes fantasyModalFade{from{opacity:0}to{opacity:1}}
-@keyframes fantasyDialogEnter{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes fantasyPlayerEnter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.modal:not(.hidden){animation:fantasyModalFade .22s ease-out both}
-.modal:not(.hidden)>.dialog{animation:fantasyDialogEnter .3s cubic-bezier(.2,.75,.25,1) both;transform-origin:center}
-.results>.player,.best-grid>.best-card,.lineup-picker-list>.lineup-picker-player,
-.private-league-grid>.private-league-card,.private-team-list>.private-team-card,
-.private-roster-entry,.private-market-listing,.private-activity-row,
-.clause-tools+[data-ct="sum"]+[data-ct="list"]>*{
-  animation:fantasyPlayerEnter .28s cubic-bezier(.2,.75,.25,1) both;
-}
-@media(prefers-reduced-motion:reduce){
-  .modal:not(.hidden),.modal:not(.hidden)>.dialog,.results>.player,.best-grid>.best-card,
-  .lineup-picker-list>.lineup-picker-player,.private-league-grid>.private-league-card,
-  .private-team-list>.private-team-card,.private-roster-entry,.private-market-listing,
-  .private-activity-row,.clause-tools+[data-ct="sum"]+[data-ct="list"]>*{animation:none!important}
-}
