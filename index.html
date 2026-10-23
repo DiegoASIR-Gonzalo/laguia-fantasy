@@ -1018,6 +1018,99 @@ button:active{transform:translateY(1px)}
 #lineupEditor:not(.hidden){animation:secIn .45s var(--ease) both}
 [data-ct="list"]>*{animation:fadeIn .2s ease both}
 [data-ct="list"].is-first>*{animation:rowIn .4s var(--ease) both;animation-delay:calc(var(--i,0)*30ms)}
+
+
+/* ===== Inicio: carrusel automático de jugadores destacados ===== */
+.best-carousel-panel{position:relative;overflow:hidden;padding:24px!important;background:linear-gradient(145deg,#121212,#0d0d0d 65%,#16090a)!important;border-color:#292929!important}
+.best-carousel-head{align-items:center;margin-bottom:16px!important}
+.best-carousel-head h2{margin-top:5px}
+.best-eyebrow{display:flex;align-items:center;gap:8px;color:#aaa;font-size:10px;font-weight:800;letter-spacing:.14em}
+.best-eyebrow-mark{display:inline-block;width:7px;height:7px;border-radius:50%!important;background:var(--red);box-shadow:0 0 12px rgba(229,9,20,.55)}
+.best-carousel-panel .best-head p{max-width:560px;line-height:1.45}
+.best-carousel-panel .best-select{display:flex;flex-direction:column;align-items:flex-start;gap:5px;color:#777;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.best-carousel-panel .best-select select{min-width:96px;background:#111!important;border-color:#333!important;border-radius:9px!important;font-size:12px!important;text-transform:none}
+.best-carousel-panel .best-state{min-height:18px;margin:0 0 10px;font-size:11px!important;color:#828282!important}
+.best-carousel{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;align-items:center;gap:12px}
+.best-carousel-window{min-width:0;overflow:hidden;border:1px solid #303030;border-radius:16px!important;background:#101010;box-shadow:0 18px 45px rgba(0,0,0,.2)}
+.best-carousel-track{display:flex;width:100%;transform:translateX(0);transition:transform .62s cubic-bezier(.22,.75,.25,1);will-change:transform}
+.best-slide{position:relative;isolation:isolate;flex:0 0 100%;width:100%;min-width:0;min-height:298px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(155px,36%);align-items:stretch;gap:12px;padding:28px 30px!important;border:0!important;border-radius:0!important;text-align:left!important;color:#f6f6f6!important;background:radial-gradient(circle at 80% 38%,rgba(229,9,20,.17),transparent 32%),linear-gradient(112deg,#181818 0%,#111 57%,#1d090a 100%)!important;cursor:pointer}
+.best-slide:hover{background:radial-gradient(circle at 80% 38%,rgba(229,9,20,.23),transparent 34%),linear-gradient(112deg,#1d1d1d 0%,#121212 57%,#240b0c 100%)!important}
+.best-slide:before{content:attr(data-rank);position:absolute;z-index:-1;right:31%;top:50%;transform:translateY(-53%);font-family:Manrope,Inter,sans-serif;font-size:clamp(130px,17vw,230px);font-weight:800;line-height:.8;letter-spacing:-.1em;color:rgba(255,255,255,.035);pointer-events:none}
+.best-slide:after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,transparent,var(--red),transparent);opacity:.9}
+.best-slide-copy{position:relative;z-index:2;align-self:center;min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.best-slide-kicker{display:inline-flex;align-items:center;gap:7px;color:#f05a61;font-size:10px;font-weight:850;letter-spacing:.12em;text-transform:uppercase}
+.best-slide-kicker strong{display:inline-flex;align-items:center;justify-content:center;min-width:29px;height:23px;padding:0 6px;border:1px solid #543033;border-radius:6px!important;background:rgba(229,9,20,.09);color:#fff;font-size:11px;letter-spacing:0}
+.best-slide-name{display:block;max-width:100%;margin-top:15px;font-family:Manrope,Inter,sans-serif;font-size:clamp(25px,3.2vw,42px);line-height:1.08;font-weight:800;letter-spacing:-.045em;overflow-wrap:anywhere}
+.best-slide-team{display:block;margin-top:7px;color:#a7a7a7;font-size:14px}
+.best-slide-stats{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}
+.best-slide-stat{min-width:120px;padding:9px 12px;border:1px solid #303030;border-radius:9px!important;background:rgba(7,7,7,.48)}
+.best-slide-stat-label{display:block;color:#888;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.best-slide-stat-value{display:block;margin-top:3px;color:#fff;font-size:17px;font-weight:850;font-variant-numeric:tabular-nums}
+.best-slide-stat-value.points{color:#f2c300}
+.best-slide-cta{display:inline-flex;align-items:center;gap:8px;margin-top:20px;color:#ddd;font-size:11px;font-weight:750}
+.best-slide-cta span{display:inline-grid;place-items:center;width:22px;height:22px;border:1px solid #494949;border-radius:50%!important;color:#fff;transition:transform .2s,border-color .2s}
+.best-slide:hover .best-slide-cta span{transform:translateX(3px);border-color:var(--red)}
+.best-slide-art{position:relative;z-index:1;align-self:stretch;min-width:0;display:flex;justify-content:center;align-items:flex-end}
+.best-slide-art:before{content:"";position:absolute;width:min(100%,230px);aspect-ratio:1;left:50%;bottom:12px;transform:translateX(-50%);border-radius:50%!important;background:radial-gradient(circle,rgba(255,255,255,.08),rgba(229,9,20,.07) 54%,transparent 72%)}
+.best-slide-avatar{position:relative;z-index:1;display:block;width:100%;max-width:235px;height:245px;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 12px 24px rgba(0,0,0,.42));transition:transform .35s ease}
+.best-slide:hover .best-slide-avatar{transform:translateY(-4px) scale(1.025)}
+.best-slide-avatar-fallback{position:relative;z-index:1;align-self:center;display:grid;place-items:center;width:112px;height:112px;border:1px solid #383838;border-radius:50%!important;background:#171717;color:#777;font-size:42px;font-weight:850}
+.best-carousel-arrow{display:grid;place-items:center;width:42px;height:54px;padding:0!important;background:#171717!important;border:1px solid #333!important;border-radius:12px!important;color:#eee!important;font-size:34px!important;font-weight:400;line-height:1;transition:background .2s,border-color .2s,transform .2s}
+.best-carousel-arrow:hover:not(:disabled){background:#262626!important;border-color:#5a5a5a!important;transform:translateY(-1px)}
+.best-carousel-arrow:disabled{opacity:.28;cursor:default}
+.best-carousel-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px}
+.best-dots{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-height:18px}
+.best-dot{width:7px;height:7px;min-width:7px;padding:0!important;border:0!important;border-radius:99px!important;background:#454545!important;transition:width .25s,background .25s!important}
+.best-dot:hover{background:#999!important}
+.best-dot.active{width:23px;background:var(--red)!important}
+.best-carousel-bottom-right{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-shrink:0}
+.best-counter{color:#777;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.best-autoplay{padding:7px 10px!important;border:1px solid #333!important;border-radius:8px!important;background:#151515!important;color:#c6c6c6!important;font-size:10px!important;font-weight:750;white-space:nowrap}
+.best-autoplay:hover{background:#222!important;color:#fff!important}
+.best-autoplay[aria-pressed="true"]{border-color:#555!important;color:#fff!important}
+.best-carousel-empty{flex:0 0 100%;padding:32px 16px;color:#777;text-align:center;font-size:12px}
+@media(max-width:699px){
+  .best-carousel-panel{padding:16px 12px!important}
+  .best-carousel-head{align-items:flex-start;gap:10px}
+  .best-carousel-head h2{font-size:18px!important;line-height:1.25}
+  .best-carousel-head p{font-size:11px!important}
+  .best-carousel-panel .best-select{font-size:9px;flex-shrink:0}
+  .best-carousel-panel .best-select select{min-width:78px;padding:7px 8px!important;font-size:11px!important}
+  .best-carousel{grid-template-columns:25px minmax(0,1fr) 25px;gap:5px}
+  .best-carousel-window{border-radius:12px!important}
+  .best-slide{min-height:310px;grid-template-columns:minmax(0,1fr) 34%;gap:3px;padding:20px 13px!important}
+  .best-slide:before{right:20%;font-size:135px}
+  .best-slide-name{font-size:clamp(21px,6vw,30px);line-height:1.1;margin-top:12px}
+  .best-slide-team{font-size:11px;line-height:1.35}
+  .best-slide-stats{gap:6px;margin-top:15px;flex-direction:column}
+  .best-slide-stat{min-width:0;padding:7px 8px;width:100%}
+  .best-slide-stat-label{font-size:8px;letter-spacing:.06em}
+  .best-slide-stat-value{font-size:14px}
+  .best-slide-cta{font-size:9px;margin-top:14px;gap:5px}
+  .best-slide-cta span{width:19px;height:19px}
+  .best-slide-avatar{height:220px;max-width:100%;object-fit:contain}
+  .best-slide-art:before{width:130%;bottom:14px}
+  .best-slide-avatar-fallback{width:55px;height:55px;font-size:25px}
+  .best-carousel-arrow{width:25px;height:43px;font-size:25px!important;border-radius:7px!important}
+  .best-carousel-footer{margin-top:12px;gap:7px;align-items:flex-start}
+  .best-dots{gap:5px;padding-top:5px}
+  .best-dot{width:6px;height:6px;min-width:6px}
+  .best-dot.active{width:17px}
+  .best-carousel-bottom-right{gap:7px}
+  .best-counter{font-size:10px}
+  .best-autoplay{font-size:9px!important;padding:6px 7px!important}
+}
+@media(max-width:370px){
+  .best-carousel-head{flex-direction:column}
+  .best-carousel-head .best-select{flex-direction:row;align-items:center}
+  .best-slide{grid-template-columns:minmax(0,1fr) 28%;padding:17px 10px!important}
+  .best-slide-name{font-size:21px}
+  .best-slide-avatar{height:195px}
+  .best-slide-stat-value{font-size:12px}
+  .best-slide-cta{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.best-carousel-track,.best-slide-avatar,.best-slide-cta span,.best-dot{transition:none!important}}
+
 </style>
 </head>
 <body>
@@ -1064,13 +1157,14 @@ button:active{transform:translateY(1px)}
         <div class="current-week-note">Información obtenida de la jornada que está activa ahora mismo en LALIGA Fantasy.</div>
       </section>
       <div id="results" class="results"></div>
-      <section class="best-panel" aria-labelledby="bestTitle">
-        <div class="best-head">
+      <section class="best-panel best-carousel-panel" aria-labelledby="bestTitle">
+        <div class="best-head best-carousel-head">
           <div>
-            <h2 id="bestTitle">Mejores Jugadores (Actualmente)</h2>
-            <p>Los jugadores con mayor media de puntos, ordenados de mayor a menor.</p>
+            <div class="best-eyebrow"><span class="best-eyebrow-mark"></span> RANKING FANTASY</div>
+            <h2 id="bestTitle">Los jugadores más destacados</h2>
+            <p>Los mejores por media de puntos, con actualización desde el catálogo actual.</p>
           </div>
-          <label class="best-select">Mostrar
+          <label class="best-select">Ranking
             <select id="bestLimit" aria-label="Número de mejores jugadores">
               <option value="5">Top 5</option>
               <option value="10">Top 10</option>
@@ -1078,8 +1172,21 @@ button:active{transform:translateY(1px)}
             </select>
           </label>
         </div>
-        <div id="bestState" class="best-state">Esperando datos…</div>
-        <div id="bestResults" class="best-grid"></div>
+        <div id="bestState" class="best-state" role="status" aria-live="polite">Esperando datos…</div>
+        <div id="bestCarousel" class="best-carousel" aria-label="Carrusel de mejores jugadores">
+          <button id="bestPrev" class="best-carousel-arrow" type="button" aria-label="Jugador anterior" title="Jugador anterior">‹</button>
+          <div id="bestWindow" class="best-carousel-window">
+            <div id="bestResults" class="best-carousel-track" aria-live="off"></div>
+          </div>
+          <button id="bestNext" class="best-carousel-arrow" type="button" aria-label="Jugador siguiente" title="Jugador siguiente">›</button>
+        </div>
+        <div class="best-carousel-footer">
+          <div id="bestDots" class="best-dots" role="group" aria-label="Elegir jugador destacado"></div>
+          <div class="best-carousel-bottom-right">
+            <span id="bestCounter" class="best-counter">— / —</span>
+            <button id="bestAutoplay" class="best-autoplay" type="button" aria-pressed="false" aria-label="Pausar avance automático">Ⅱ Pausar</button>
+          </div>
+        </div>
       </section>
       <div class="notice">Pulsa un jugador para abrir su ficha completa.</div>
     </div>
@@ -1469,23 +1576,69 @@ function playerCard(p,teamFallback=""){
     '<div class="stats"><span class="gold">'+money(p.market)+'</span><br><span class="green">'+(p.avg===null?"Media —":"Media "+p.avg.toLocaleString("es-ES"))+'</span></div></button>'
 }
 function renderSearch(){const q=$("search").value.trim().toLowerCase(),box=$("results");if(!players){box.innerHTML='<div class="empty">Cargando la lista de jugadores…</div>';return}const rows=players.filter(p=>!q||[p.name,p.team,String(p.id||"")].some(x=>String(x).toLowerCase().includes(q))).slice(0,40);box.innerHTML=rows.length?rows.map(p=>playerCard(p)).join(""):'<div class="empty">No se ha encontrado ningún jugador.</div>';box.querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>openPlayer(b.dataset.id))}
+let bestRankedPlayers=[],bestIndex=0,bestAutoTimer=null,bestAutoPaused=false,bestHoverPaused=false,bestFocusPaused=false;
+const BEST_AUTOPLAY_MS=4800;
+function stopBestAutoplay(){if(bestAutoTimer!==null){clearInterval(bestAutoTimer);bestAutoTimer=null}}
+function updateBestAutoplayButton(){
+  const btn=$("bestAutoplay");if(!btn)return;
+  btn.textContent=bestAutoPaused?"▶ Reanudar":"Ⅱ Pausar";
+  btn.setAttribute("aria-pressed",String(bestAutoPaused));
+  btn.setAttribute("aria-label",bestAutoPaused?"Reanudar avance automático":"Pausar avance automático");
+}
+function syncBestAutoplay(){
+  stopBestAutoplay();updateBestAutoplayButton();
+  if(bestAutoPaused||bestHoverPaused||bestFocusPaused||document.hidden||!$("home")?.classList.contains("active")||bestRankedPlayers.length<2)return;
+  if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  bestAutoTimer=setInterval(()=>setBestSlide(bestIndex+1),BEST_AUTOPLAY_MS);
+}
+function setBestSlide(index){
+  const track=$("bestResults"),dots=$("bestDots"),count=bestRankedPlayers.length;
+  if(!track||!count)return;
+  bestIndex=((index%count)+count)%count;
+  track.style.transform="translateX(-"+(bestIndex*100)+"%)";
+  track.querySelectorAll(".best-slide").forEach((slide,i)=>{
+    const active=i===bestIndex;
+    slide.setAttribute("aria-hidden",String(!active));
+    slide.tabIndex=active?0:-1;
+  });
+  if(dots)dots.querySelectorAll("[data-best-index]").forEach((dot,i)=>{
+    dot.classList.toggle("active",i===bestIndex);
+    dot.setAttribute("aria-current",i===bestIndex?"true":"false");
+  });
+  const counter=$("bestCounter");if(counter)counter.textContent=(bestIndex+1)+" / "+count;
+}
 async function renderBestPlayers(){
-  const box=$("bestResults"), state=$("bestState"), limit=Number($("bestLimit").value||5);
-  if(!players){state.textContent="Cargando jugadores…";box.innerHTML="";return}
-  const ranked=players.filter(p=>p.avg!==null && Number.isFinite(p.avg)).sort((a,b)=>
-    b.avg-a.avg || ((b.market??-Infinity)-(a.market??-Infinity)) || String(a.name).localeCompare(String(b.name),"es")
+  const box=$("bestResults"),state=$("bestState"),limit=Number($("bestLimit").value||5),dots=$("bestDots");
+  if(!players){bestRankedPlayers=[];bestIndex=0;stopBestAutoplay();state.textContent="Cargando jugadores…";box.innerHTML="";if(dots)dots.innerHTML="";$("bestCounter").textContent="— / —";return}
+  bestRankedPlayers=players.filter(p=>p.avg!==null&&Number.isFinite(p.avg)).sort((a,b)=>
+    b.avg-a.avg||((b.market??-Infinity)-(a.market??-Infinity))||String(a.name).localeCompare(String(b.name),"es")
   ).slice(0,limit);
-  state.textContent=ranked.length?("Ordenado por media de puntos · "+ranked.length+" jugadores mostrados"):"No hay medias de puntos disponibles en el catálogo actual.";
-  box.innerHTML=ranked.length?ranked.map((p,i)=>
-    '<button type="button" class="best-card" data-best-id="'+esc(p.id||"")+'">'+
-      '<div class="best-rank">#'+(i+1)+'</div>'+
-      (p.image?'<img class="best-avatar" src="'+esc(p.image)+'" alt="" loading="lazy">':'<div class="best-avatar"></div>')+
-      '<div><div class="best-name">'+esc(p.name)+'</div>'+
-      '<div class="best-team">'+esc(p.team||"Equipo no indicado")+'</div>'+
-      '<div class="best-meta"><span class="best-pill green">Media '+p.avg.toLocaleString("es-ES",{maximumFractionDigits:2})+'</span>'+
-      '<span class="best-pill gold">'+money(p.market)+'</span></div></div></button>'
-  ).join(""):'<div class="empty">Todavía no hay datos suficientes para crear el ranking.</div>';
+  bestIndex=0;
+  state.textContent=bestRankedPlayers.length?("Ordenado por media de puntos · "+bestRankedPlayers.length+" jugadores"):"No hay medias de puntos disponibles en el catálogo actual.";
+  box.style.transform="translateX(0)";
+  box.innerHTML=bestRankedPlayers.length?bestRankedPlayers.map((p,i)=>
+    '<button type="button" class="best-slide" data-best-id="'+esc(p.id||"")+'" data-rank="'+String(i+1).padStart(2,"0")+'" aria-label="Abrir ficha de '+esc(p.name)+'" aria-hidden="'+(i===0?'false':'true')+'" tabindex="'+(i===0?'0':'-1')+'">'+
+      '<span class="best-slide-copy">'+
+        '<span class="best-slide-kicker">JUGADOR DESTACADO <strong>#'+String(i+1).padStart(2,"0")+'</strong></span>'+
+        '<span class="best-slide-name">'+esc(p.name)+'</span>'+
+        '<span class="best-slide-team">'+esc(p.team||"Equipo no indicado")+'</span>'+
+        '<span class="best-slide-stats">'+
+          '<span class="best-slide-stat"><span class="best-slide-stat-label">Media de puntos</span><span class="best-slide-stat-value points">'+p.avg.toLocaleString("es-ES",{maximumFractionDigits:2})+'</span></span>'+
+          '<span class="best-slide-stat"><span class="best-slide-stat-label">Valor de mercado</span><span class="best-slide-stat-value">'+money(p.market)+'</span></span>'+
+        '</span>'+
+        '<span class="best-slide-cta">Ver ficha del jugador <span aria-hidden="true">↗</span></span>'+
+      '</span>'+
+      '<span class="best-slide-art">'+(p.image?'<img class="best-slide-avatar" src="'+esc(p.image)+'" alt="" '+(i===0?'fetchpriority="high"':'loading="lazy"')+'>':'<span class="best-slide-avatar-fallback" aria-hidden="true">'+esc(String(p.name||"J").trim().charAt(0).toUpperCase())+'</span>')+'</span>'+
+    '</button>'
+  ).join(""):'<div class="best-carousel-empty">Todavía no hay datos suficientes para crear el ranking.</div>';
+  if(dots)dots.innerHTML=bestRankedPlayers.map((p,i)=>'<button type="button" class="best-dot'+(i===0?' active':'')+'" data-best-index="'+i+'" aria-label="Mostrar jugador '+(i+1)+': '+esc(p.name)+'" aria-current="'+(i===0?'true':'false')+'"></button>').join("");
   box.querySelectorAll("[data-best-id]").forEach(b=>b.onclick=()=>openPlayer(b.dataset.bestId));
+  if(dots)dots.querySelectorAll("[data-best-index]").forEach(b=>b.onclick=()=>setBestSlide(Number(b.dataset.bestIndex)));
+  const prev=$("bestPrev"),next=$("bestNext");
+  if(prev)prev.disabled=bestRankedPlayers.length<2;
+  if(next)next.disabled=bestRankedPlayers.length<2;
+  if(bestRankedPlayers.length)setBestSlide(0);else{$("bestCounter").textContent="— / —";stopBestAutoplay()}
+  syncBestAutoplay();
 }
 function loadPlayers(force=false){if(loading)return loading;loading=(async()=>{try{setState("loading",force?"Actualizando lista…":"Cargando jugadores…");if(!force){const saved=localStorage.getItem(CACHE_KEY);if(saved){try{const x=JSON.parse(saved);if(Date.now()-x.ts<15*60*1000){players=normalizePlayers(x.data);renderSearch();renderBestPlayers();renderForgotten();populateComparePlayers();setState("ok","Lista cargada desde caché");return}}catch{}}}const r=await fetch(API+"?path="+encodeURIComponent("/v1/competition/1/players"),{headers:{Accept:"application/json"},cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const raw=await r.json();players=normalizePlayers(raw);localStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:Array.isArray(raw)?raw:(raw.players||raw.items||raw.results||raw.data||raw.content||raw)}));renderSearch();renderBestPlayers();renderForgotten();populateComparePlayers();if(teams)renderTeams();setState("ok","Lista actualizada")}catch(e){players=null;setState("bad","No se pudo cargar la lista");$("results").innerHTML='<div class="empty">No se pudo cargar el catálogo de jugadores. <button class="primary" onclick="loadPlayers(true)">Reintentar</button></div>'}finally{loading=null}})();return loading}
 function teamLogo(t){const v=typeof t?.image==="string"?t.image.trim():"";return v&&(/^(https?:\/\/|\/|data:image\/)/i.test(v))&&!/^#[0-9a-f]{3,8}$/i.test(v)?v:null}
@@ -1593,7 +1746,16 @@ $("teamSort").onchange=async()=>{
     renderTeamPlayers(currentTeamId,"points");
   }
 };
-$("teamSearch").oninput=renderTeams;$("bestLimit").onchange=renderBestPlayers;$("backTeams").onclick=()=>{$("teamDetail").classList.add("hidden");$("teamGrid").classList.remove("hidden");currentTeamId=""};
+$("teamSearch").oninput=renderTeams;
+$("bestLimit").onchange=renderBestPlayers;
+$("bestPrev").onclick=()=>setBestSlide(bestIndex-1);
+$("bestNext").onclick=()=>setBestSlide(bestIndex+1);
+$("bestAutoplay").onclick=()=>{bestAutoPaused=!bestAutoPaused;syncBestAutoplay()};
+$("bestCarousel").addEventListener("mouseenter",()=>{bestHoverPaused=true;syncBestAutoplay()});
+$("bestCarousel").addEventListener("mouseleave",()=>{bestHoverPaused=false;syncBestAutoplay()});
+$("bestCarousel").addEventListener("focusin",()=>{bestFocusPaused=true;syncBestAutoplay()});
+$("bestCarousel").addEventListener("focusout",e=>{if(!e.relatedTarget||!$("bestCarousel").contains(e.relatedTarget)){bestFocusPaused=false;syncBestAutoplay()}});
+document.addEventListener("visibilitychange",syncBestAutoplay);$("backTeams").onclick=()=>{$("teamDetail").classList.add("hidden");$("teamGrid").classList.remove("hidden");currentTeamId=""};
 async function loadTeams(){
   if(teamsLoading)return teamsLoading;
   teamsLoading=(async()=>{try{
@@ -3788,6 +3950,7 @@ document.querySelectorAll("[data-section]").forEach(b=>b.onclick=()=>{
   const bb=document.querySelector('.bottom-nav [data-section="'+b.dataset.section+'"]');if(bb)bb.classList.add("active");
   document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
   $(b.dataset.section).classList.add("active");
+  syncBestAutoplay();
   if(b.dataset.section==="calendar")loadCalendar();
   if(b.dataset.section==="my-leagues")loadMyLeagues();
   if(b.dataset.section==="create-team")loadLineupEditorLeagues();
